@@ -2,22 +2,39 @@ import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import { StyleSheet, View } from 'react-native';
+import { LANE_MAP } from '../../constants/laneMap';
+import { Building } from './Building';
 
-export const Scene = ({ children }: { children?: React.ReactNode }) => {
+export const Scene = ({ onBuildingPress }: { onBuildingPress?: (row: number, col: number) => void }) => {
   return (
     <View style={styles.container}>
-      <Canvas camera={{ position: [10, 10, 10], fov: 50 }}>
-        <color attach="background" args={['#f0f0f0']} />
+      <Canvas camera={{ position: [15, 15, 15], fov: 50 }}>
+        <color attach="background" args={['#f8f9fa']} />
         <ambientLight intensity={1.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
+        <pointLight position={[20, 20, 20]} intensity={1.2} />
         <Grid 
           infiniteGrid 
-          fadeDistance={50} 
+          fadeDistance={100} 
           sectionSize={1} 
-          cellColor="#6f6f6f"
-          sectionColor="#9d9d9d"
+          cellColor="#dee2e6"
+          sectionColor="#adb5bd"
         />
-        {children}
+        
+        {LANE_MAP.map((rowArr, rowIndex) => 
+          rowArr.map((floors, colIndex) => {
+            if (floors === 0) return null;
+            return (
+              <Building
+                key={`${rowIndex}-${colIndex}`}
+                position={[colIndex - 3, 0, rowIndex - 15]}
+                floors={floors}
+                onPress={() => onBuildingPress?.(rowIndex, colIndex)}
+                houseNo={`${rowIndex}-${colIndex}`} // Placeholder
+              />
+            );
+          })
+        )}
+
         <OrbitControls makeDefault />
       </Canvas>
     </View>
