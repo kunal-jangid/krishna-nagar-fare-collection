@@ -51,7 +51,7 @@ git commit -m "chore: initialize expo project with dependencies"
 **Files:**
 - Create: `supabase/migrations/20260524000000_init.sql`
 
-- [ ] **Step 1: Create SQL Migration for Tables**
+- [x] **Step 1: Create SQL Migration for Tables**
 
 ```sql
 -- Create tables as per design spec
@@ -84,7 +84,7 @@ CREATE TABLE payment_logs (
 );
 ```
 
-- [ ] **Step 2: Initialize Supabase Client**
+- [x] **Step 2: Initialize Supabase Client**
 
 Create `src/lib/supabase.ts`:
 ```typescript
@@ -96,7 +96,7 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/ src/lib/supabase.ts
@@ -109,7 +109,7 @@ git commit -m "feat: setup supabase tables and client"
 - Create: `src/constants/laneMap.ts`
 - Create: `src/types/index.ts`
 
-- [ ] **Step 1: Define Lane Matrix**
+- [x] **Step 1: Define Lane Matrix**
 
 Create `src/constants/laneMap.ts`:
 ```typescript
@@ -122,7 +122,7 @@ export const GRID_SIZE = { rows: 30, cols: 7 };
 export const UNIT_SIZE = 1;
 ```
 
-- [ ] **Step 2: Define Types**
+- [x] **Step 2: Define Types**
 
 Create `src/types/index.ts`:
 ```typescript
@@ -143,7 +143,7 @@ export interface PaymentLog {
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/constants/ src/types/
@@ -156,7 +156,7 @@ git commit -m "feat: define lane map and types"
 - Create: `src/components/3d/Scene.tsx`
 - Modify: `App.tsx`
 
-- [ ] **Step 1: Create Basic Scene**
+- [x] **Step 1: Create Basic Scene**
 
 Create `src/components/3d/Scene.tsx`:
 ```typescript
@@ -177,11 +177,11 @@ export const Scene = ({ children }: { children: React.ReactNode }) => {
 };
 ```
 
-- [ ] **Step 2: Integrate Scene in App**
+- [x] **Step 2: Integrate Scene in App**
 
 Modify `App.tsx` to render the `Scene`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/3d/Scene.tsx App.tsx
@@ -193,7 +193,7 @@ git commit -m "feat: setup basic 3D scene with grid and controls"
 **Files:**
 - Create: `src/components/3d/Building.tsx`
 
-- [ ] **Step 1: Implement Building Primitive**
+- [x] **Step 1: Implement Building Primitive**
 
 Create `src/components/3d/Building.tsx`:
 ```typescript
@@ -217,11 +217,11 @@ export const Building = ({ floors, isRed, onPress, ...props }: BuildingProps) =>
 };
 ```
 
-- [ ] **Step 2: Render Buildings from LANE_MAP**
+- [x] **Step 2: Render Buildings from LANE_MAP**
 
 Update `Scene.tsx` to map over `LANE_MAP` and render `Building` components.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/3d/Building.tsx src/components/3d/Scene.tsx
@@ -233,15 +233,15 @@ git commit -m "feat: add interactive building components to scene"
 **Files:**
 - Create: `src/components/ui/BuildingOverlay.tsx`
 
-- [ ] **Step 1: Create Modal/BottomSheet Overlay**
+- [x] **Step 1: Create Modal/BottomSheet Overlay**
 
 Using `react-native-paper`, create an overlay that shows building details (House No, Owner).
 
-- [ ] **Step 2: Integrate Overlay with Scene Interaction**
+- [x] **Step 2: Integrate Overlay with Scene Interaction**
 
 When a building is clicked in the 3D scene, open the overlay with the corresponding building's data.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/ui/BuildingOverlay.tsx
@@ -253,15 +253,15 @@ git commit -m "feat: implement building detail overlay"
 **Files:**
 - Create: `src/components/ui/PaymentMatrix.tsx`
 
-- [ ] **Step 1: Implement Payment History Grid**
+- [x] **Step 1: Implement Payment History Grid**
 
 Render a 3x12 grid (Factors x Months) showing payment status.
 
-- [ ] **Step 2: Add Payment Logging Form**
+- [x] **Step 2: Add Payment Logging Form**
 
 A simple form to select factor, month, and amount, then call `supabase.from('payment_logs').insert(...)`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/ui/PaymentMatrix.tsx
@@ -274,15 +274,15 @@ git commit -m "feat: add payment history and logging"
 - Modify: `src/hooks/useBuildingData.ts`
 - Modify: `src/components/3d/Building.tsx`
 
-- [ ] **Step 1: Implement "Unpaid" Red Status Logic**
+- [x] **Step 1: Implement "Unpaid" Red Status Logic**
 
 Fetch payments for the previous month. If any building is missing a payment for any factor, set `isRed = true`.
 
-- [ ] **Step 2: Camera Integration for Images**
+- [x] **Step 2: Camera Integration for Images**
 
 Implement image picker/camera service to update `image_url` in `buildings` table and upload to Supabase Storage.
 
-- [ ] **Step 3: Final Verification and Commit**
+- [x] **Step 3: Final Verification and Commit**
 
 ```bash
 git add .

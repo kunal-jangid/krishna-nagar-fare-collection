@@ -38,7 +38,7 @@ export const PaymentMatrix = ({ logs, config, onLogPayment }: PaymentMatrixProps
 
   const renderFactorRow = (factorId: 1 | 2 | 3, label: string) => (
     <DataTable.Row key={factorId}>
-      <DataTable.Cell sticky>{label}</DataTable.Cell>
+      <DataTable.Cell>{label}</DataTable.Cell>
       {MONTHS.map((_, index) => (
         <DataTable.Cell key={index} numeric>
           <IconButton
@@ -57,7 +57,7 @@ export const PaymentMatrix = ({ logs, config, onLogPayment }: PaymentMatrixProps
       <ScrollView horizontal>
         <DataTable style={styles.table}>
           <DataTable.Header>
-            <DataTable.Title sticky>Factor</DataTable.Title>
+            <DataTable.Title>Factor</DataTable.Title>
             {MONTHS.map(month => (
               <DataTable.Title key={month} numeric>{month}</DataTable.Title>
             ))}

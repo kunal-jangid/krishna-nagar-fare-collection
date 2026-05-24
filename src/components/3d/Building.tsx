@@ -1,16 +1,17 @@
 import React, { useRef, useState } from 'react';
-import { MeshProps } from '@react-three/fiber';
+import { ThreeElements } from '@react-three/fiber';
 import { Mesh } from 'three';
 import { Text } from '@react-three/drei';
 
-interface BuildingProps extends MeshProps {
+interface BuildingProps {
   floors: number;
   isRed?: boolean;
   onPress: () => void;
   houseNo?: string;
+  position?: [number, number, number];
 }
 
-export const Building = ({ floors, isRed, onPress, houseNo, ...props }: BuildingProps) => {
+export const Building = ({ floors, isRed, onPress, houseNo, position }: BuildingProps) => {
   const meshRef = useRef<Mesh>(null!);
   const [hovered, setHovered] = useState(false);
 
@@ -19,9 +20,8 @@ export const Building = ({ floors, isRed, onPress, houseNo, ...props }: Building
   const yPos = height / 2;
 
   return (
-    <group position={props.position}>
+    <group position={position}>
       <mesh
-        {...props}
         position={[0, yPos, 0]}
         ref={meshRef}
         onPointerOver={() => setHovered(true)}
