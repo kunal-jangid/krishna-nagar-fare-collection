@@ -3,10 +3,20 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@supabase/supabase-js": "^2.106.1",
+    "@types/three": "^0.184.1",
     "expo": "~56.0.4",
+    "expo-camera": "~56.0.7",
+    "expo-image": "~56.0.9",
+    "expo-image-picker": "~56.0.13",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
-    "react-native": "0.85.3"
+    "react-native": "0.85.3",
+    "react-native-paper": "^5.15.2",
+    "react-native-vector-icons": "^10.3.0",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

@@ -29,17 +29,17 @@
 **Files:**
 - Create: `package.json`, `app.json`, `tsconfig.json`
 
-- [ ] **Step 1: Initialize Expo Project**
+- [x] **Step 1: Initialize Expo Project**
 
 Run: `npx create-expo-app@latest . -t expo-template-blank-typescript`
 Expected: Project initialized with TypeScript.
 
-- [ ] **Step 2: Install Core Dependencies**
+- [x] **Step 2: Install Core Dependencies**
 
 Run: `npx expo install @react-three/fiber three @types/three @react-three/drei react-native-paper react-native-vector-icons @supabase/supabase-js expo-camera expo-image-picker expo-image`
 Expected: Dependencies installed successfully.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .
