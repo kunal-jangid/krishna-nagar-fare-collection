@@ -1,20 +1,25 @@
 import React from 'react';
-import { StyleSheet, View, Image } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
 import { Modal, Portal, Text, Button, Card, Divider } from 'react-native-paper';
-import { BuildingData } from '../../types';
+import { BuildingData, PaymentLog, AppConfig } from '../../types';
+import { PaymentMatrix } from './PaymentMatrix';
 
 interface BuildingOverlayProps {
   visible: boolean;
   onDismiss: () => void;
   building: BuildingData | null;
+  logs: PaymentLog[];
+  config: AppConfig;
   onUpdateImage: () => void;
-  onLogPayment: () => void;
+  onLogPayment: (factorId: 1 | 2 | 3, month: number, amount: number) => void;
 }
 
 export const BuildingOverlay = ({ 
   visible, 
   onDismiss, 
   building, 
+  logs,
+  config,
   onUpdateImage, 
   onLogPayment 
 }: BuildingOverlayProps) => {
@@ -27,26 +32,37 @@ export const BuildingOverlay = ({
         onDismiss={onDismiss} 
         contentContainerStyle={styles.container}
       >
-        <Card>
-          {building.image_url ? (
-            <Card.Cover source={{ uri: building.image_url }} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Text variant="bodyMedium">No image available</Text>
-            </View>
-          )}
-          <Card.Content style={styles.content}>
-            <Text variant="headlineSmall">House No: {building.house_no}</Text>
-            <Text variant="titleMedium">Owner: {building.owner_name}</Text>
-            <Divider style={styles.divider} />
-            <Text variant="bodyLarge">Grid Position: {building.row}, {building.col}</Text>
-            <Text variant="bodyLarge">Floors: {building.floors}</Text>
-          </Card.Content>
-          <Card.Actions style={styles.actions}>
-            <Button onPress={onUpdateImage} icon="camera">Update Image</Button>
-            <Button onPress={onLogPayment} mode="contained">Log Payment</Button>
-          </Card.Actions>
-        </Card>
+        <ScrollView>
+          <Card>
+            {building.image_url ? (
+              <Card.Cover source={{ uri: building.image_url }} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Text variant="bodyMedium">No image available</Text>
+              </View>
+            )}
+            <Card.Content style={styles.content}>
+              <Text variant="headlineSmall">House No: {building.house_no}</Text>
+              <Text variant="titleMedium">Owner: {building.owner_name}</Text>
+              <Divider style={styles.divider} />
+              
+              <Text variant="titleMedium" style={styles.sectionTitle}>Payment History</Text>
+              <PaymentMatrix 
+                logs={logs} 
+                config={config} 
+                onLogPayment={onLogPayment} 
+              />
+
+              <Divider style={styles.divider} />
+              <Text variant="bodyLarge">Grid Position: {building.row}, {building.col}</Text>
+              <Text variant="bodyLarge">Floors: {building.floors}</Text>
+            </Card.Content>
+            <Card.Actions style={styles.actions}>
+              <Button onPress={onUpdateImage} icon="camera">Update Image</Button>
+              <Button onPress={onDismiss}>Close</Button>
+            </Card.Actions>
+          </Card>
+        </ScrollView>
       </Modal>
     </Portal>
   );
@@ -54,7 +70,8 @@ export const BuildingOverlay = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    padding: 10,
+    maxHeight: '90%',
   },
   content: {
     marginTop: 10,
@@ -62,8 +79,11 @@ const styles = StyleSheet.create({
   divider: {
     marginVertical: 10,
   },
+  sectionTitle: {
+    marginTop: 10,
+  },
   imagePlaceholder: {
-    height: 200,
+    height: 150,
     backgroundColor: '#e1e1e1',
     justifyContent: 'center',
     alignItems: 'center',
