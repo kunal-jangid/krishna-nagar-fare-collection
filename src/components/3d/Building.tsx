@@ -1,23 +1,31 @@
-import React, { useRef, useState } from 'react';
-import { ThreeElements } from '@react-three/fiber';
+import React, { useRef, useState, memo } from 'react';
 import { Mesh } from 'three';
-import { Text } from '@react-three/drei';
+import { Edges } from '@react-three/drei';
+import { UI_CONSTANTS } from '../../constants/config';
+
+import { StatusType } from '../../hooks/useBuildingData';
 
 interface BuildingProps {
   floors: number;
-  isRed?: boolean;
+  status: StatusType;
   onPress: () => void;
   houseNo?: string;
   position?: [number, number, number];
 }
 
-export const Building = ({ floors, isRed, onPress, houseNo, position }: BuildingProps) => {
+export const Building = memo(({ floors, status, onPress, houseNo, position }: BuildingProps) => {
   const meshRef = useRef<Mesh>(null!);
   const [hovered, setHovered] = useState(false);
 
-  // Height is 0.5 per floor, centered at height/2
-  const height = floors * 0.8;
+  // Height is centered at height/2
+  const height = floors * UI_CONSTANTS.BUILDING_HEIGHT_MULTIPLIER;
   const yPos = height / 2;
+
+  const color = status === 'green' 
+    ? UI_CONSTANTS.GREEN_STATUS_COLOR 
+    : status === 'grey' 
+      ? UI_CONSTANTS.GREY_STATUS_COLOR
+      : (hovered ? UI_CONSTANTS.HOVER_COLOR : UI_CONSTANTS.RED_STATUS_COLOR);
 
   return (
     <group position={position}>
@@ -31,24 +39,19 @@ export const Building = ({ floors, isRed, onPress, houseNo, position }: Building
           onPress();
         }}
       >
-        <boxGeometry args={[0.8, height, 0.8]} />
+        <boxGeometry args={[UI_CONSTANTS.BUILDING_WIDTH, height, UI_CONSTANTS.BUILDING_WIDTH]} />
         <meshStandardMaterial 
-          color={isRed ? '#ff5252' : (hovered ? '#e0e0e0' : '#ffffff')} 
+          color={color} 
           roughness={0.3}
           metalness={0.2}
         />
+        {/* Add black edges to make buildings distinct */}
+        <Edges
+          threshold={15}
+          color="#333"
+          scale={1.001}
+        />
       </mesh>
-      {houseNo && (
-        <Text
-          position={[0, height + 0.2, 0]}
-          fontSize={0.2}
-          color="black"
-          anchorX="center"
-          anchorY="middle"
-        >
-          {houseNo}
-        </Text>
-      )}
     </group>
   );
-};
+});

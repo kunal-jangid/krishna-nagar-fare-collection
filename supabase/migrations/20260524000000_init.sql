@@ -13,7 +13,10 @@ CREATE TABLE buildings (
   row int NOT NULL,
   col int NOT NULL,
   floors int DEFAULT 1,
-  image_url text
+  image_url text,
+  track_factor_1 boolean DEFAULT true,
+  track_factor_2 boolean DEFAULT true,
+  track_factor_3 boolean DEFAULT true
 );
 
 CREATE TABLE payment_logs (
@@ -24,5 +27,6 @@ CREATE TABLE payment_logs (
   month int CHECK (month BETWEEN 1 AND 12),
   year int,
   created_by uuid REFERENCES auth.users(id),
+  created_by_name text,
   created_at timestamptz DEFAULT now()
 );

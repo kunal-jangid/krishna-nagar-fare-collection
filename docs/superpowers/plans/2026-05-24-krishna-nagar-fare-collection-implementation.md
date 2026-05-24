@@ -288,3 +288,6 @@ Implement image picker/camera service to update `image_url` in `buildings` table
 git add .
 git commit -m "feat: implement status logic and camera integration"
 ```
+
+> **Note:** Fixed bundling error by installing missing `expo-gl` and `expo-asset` dependencies required by `@react-three/fiber` on native.
+

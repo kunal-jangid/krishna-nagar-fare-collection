@@ -6,6 +6,9 @@ export interface BuildingData {
   col: number;
   floors: number;
   image_url?: string;
+  track_factor_1: boolean;
+  track_factor_2: boolean;
+  track_factor_3: boolean;
 }
 
 export interface PaymentLog {
@@ -16,11 +19,16 @@ export interface PaymentLog {
   month: number;
   year: number;
   created_by: string;
+  created_by_name?: string;
   created_at: string;
 }
 
 export interface AppConfig {
+  id?: string;
   factor_1_label: string;
   factor_2_label: string;
   factor_3_label: string;
+  factor_1_target?: number;
+  factor_2_target?: number;
+  factor_3_target?: number;
 }

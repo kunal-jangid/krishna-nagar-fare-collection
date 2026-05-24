@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView } from 'react-native';
-import { DataTable, IconButton, Portal, Modal, TextInput, Button, Text } from 'react-native-paper';
-import { PaymentLog, AppConfig } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
+import { IconButton, Portal, Modal, TextInput, Button, Text } from 'react-native-paper';
+import { PaymentLog } from '../../types';
 
 interface PaymentMatrixProps {
   logs: PaymentLog[];
-  config: AppConfig;
+  factorId: 1 | 2 | 3;
+  factorLabel: string;
+  activeMonth: number;
   onLogPayment: (factorId: 1 | 2 | 3, month: number, amount: number) => void;
+  isAssigned?: boolean;
 }
 
 const MONTHS = [
@@ -14,59 +17,98 @@ const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
-export const PaymentMatrix = ({ logs, config, onLogPayment }: PaymentMatrixProps) => {
+export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogPayment, isAssigned = true }: PaymentMatrixProps) => {
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedFactor, setSelectedFactor] = useState<1 | 2 | 3>(1);
-  const [selectedMonth, setSelectedMonth] = useState(1);
+  const [selectedMonth, setSelectedMonth] = useState(activeMonth);
   const [amount, setAmount] = useState('');
 
-  const isPaid = (factorId: number, month: number) => {
+  // Sync selectedMonth with activeMonth when props change
+  useEffect(() => {
+    setSelectedMonth(activeMonth);
+  }, [activeMonth]);
+
+  const isPaid = (month: number) => {
     return logs.some(log => log.factor_id === factorId && log.month === month);
   };
 
-  const handleOpenLog = (factorId: 1 | 2 | 3, month: number) => {
-    setSelectedFactor(factorId);
+  const handleOpenLog = (month: number) => {
+    if (!isAssigned) return;
     setSelectedMonth(month);
     setModalVisible(true);
   };
 
   const handleSubmit = () => {
-    onLogPayment(selectedFactor, selectedMonth, parseFloat(amount));
-    setModalVisible(false);
-    setAmount('');
+    const parsedAmount = parseFloat(amount);
+    if (!isNaN(parsedAmount)) {
+      onLogPayment(factorId, selectedMonth, parsedAmount);
+      setModalVisible(false);
+      setAmount('');
+    }
   };
-
-  const renderFactorRow = (factorId: 1 | 2 | 3, label: string) => (
-    <DataTable.Row key={factorId}>
-      <DataTable.Cell>{label}</DataTable.Cell>
-      {MONTHS.map((_, index) => (
-        <DataTable.Cell key={index} numeric>
-          <IconButton
-            icon={isPaid(factorId, index + 1) ? 'check-circle' : 'circle-outline'}
-            iconColor={isPaid(factorId, index + 1) ? '#4caf50' : '#bdbdbd'}
-            size={20}
-            onPress={() => handleOpenLog(factorId, index + 1)}
-          />
-        </DataTable.Cell>
-      ))}
-    </DataTable.Row>
-  );
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal>
-        <DataTable style={styles.table}>
-          <DataTable.Header>
-            <DataTable.Title>Factor</DataTable.Title>
-            {MONTHS.map(month => (
-              <DataTable.Title key={month} numeric>{month}</DataTable.Title>
-            ))}
-          </DataTable.Header>
+      {/* Quick Action for Active Month */}
+      <View style={styles.quickAction}>
+        <Button 
+          mode="contained-tonal" 
+          icon={isPaid(activeMonth) ? 'check' : 'plus'} 
+          onPress={() => handleOpenLog(activeMonth)}
+          disabled={!isAssigned || isPaid(activeMonth)}
+        >
+          {!isAssigned ? 'Not Tracking' : (isPaid(activeMonth) ? 'Paid for ' : 'Log for ')} {MONTHS[activeMonth - 1]}
+        </Button>
+      </View>
 
-          {renderFactorRow(1, config.factor_1_label)}
-          {renderFactorRow(2, config.factor_2_label)}
-          {renderFactorRow(3, config.factor_3_label)}
-        </DataTable>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.gridContainer}>
+          {/* Header Row */}
+          <View style={styles.row}>
+            <View style={[styles.cell, styles.factorHeaderCell]}>
+              <Text variant="labelLarge" style={styles.headerText}>{factorLabel}</Text>
+            </View>
+            {MONTHS.map((month) => (
+              <View key={month} style={[styles.cell, styles.monthCell]}>
+                <Text variant="labelLarge" style={styles.headerText}>{month}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Status Row */}
+          <View style={styles.row}>
+            <View style={[styles.cell, styles.factorCell]}>
+              <Text variant="bodyMedium">Status</Text>
+            </View>
+            {MONTHS.map((_, index) => {
+              const monthIndex = index + 1;
+              const isActive = monthIndex === activeMonth;
+              const paid = isPaid(monthIndex);
+              
+              const iconColor = !isAssigned ? '#e0e0e0' : (paid ? '#4caf50' : (isActive ? '#ff5252' : '#bdbdbd'));
+
+              return (
+                <TouchableOpacity 
+                  key={index} 
+                  style={[
+                    styles.cell, 
+                    styles.monthCell, 
+                    isActive && isAssigned && styles.activeMonthCell
+                  ]}
+                  onPress={() => handleOpenLog(monthIndex)}
+                  disabled={!isAssigned}
+                  activeOpacity={0.7}
+                >
+                  <IconButton
+                    icon={paid ? 'check-circle' : (!isAssigned ? 'circle-off-outline' : 'circle-outline')}
+                    iconColor={iconColor}
+                    size={22}
+                    style={{ margin: 0 }}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </ScrollView>
 
       <Portal>
@@ -76,22 +118,24 @@ export const PaymentMatrix = ({ logs, config, onLogPayment }: PaymentMatrixProps
           contentContainerStyle={styles.modal}
         >
           <Text variant="headlineSmall">Log Payment</Text>
-          <Text variant="bodyMedium">
-            Factor: {selectedFactor === 1 ? config.factor_1_label : selectedFactor === 2 ? config.factor_2_label : config.factor_3_label}
+          <Text variant="bodyLarge" style={styles.modalSubtitle}>
+            {factorLabel} - {MONTHS[selectedMonth - 1]} 2026
           </Text>
-          <Text variant="bodyMedium">Month: {MONTHS[selectedMonth - 1]}</Text>
           
           <TextInput
-            label="Amount"
+            label="Amount (₹)"
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
+            mode="outlined"
             style={styles.input}
+            autoFocus
           />
           
-          <Button mode="contained" onPress={handleSubmit} style={styles.button}>
-            Submit Payment
-          </Button>
+          <View style={styles.modalActions}>
+            <Button onPress={() => setModalVisible(false)} style={styles.flexBtn}>Cancel</Button>
+            <Button mode="contained" onPress={handleSubmit} style={styles.flexBtn}>Confirm</Button>
+          </View>
         </Modal>
       </Portal>
     </View>
@@ -100,21 +144,71 @@ export const PaymentMatrix = ({ logs, config, onLogPayment }: PaymentMatrixProps
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10,
+    marginVertical: 8,
   },
-  table: {
-    minWidth: 800,
+  quickAction: {
+    marginBottom: 12,
+    alignItems: 'flex-start',
+  },
+  gridContainer: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  cell: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRightWidth: 1,
+    borderRightColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  factorHeaderCell: {
+    width: 100,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'flex-start',
+    paddingLeft: 12,
+  },
+  factorCell: {
+    width: 100,
+    alignItems: 'flex-start',
+    paddingLeft: 12,
+  },
+  monthCell: {
+    width: 60,
+  },
+  headerText: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  activeMonthCell: {
+    backgroundColor: 'rgba(255, 82, 82, 0.08)',
   },
   modal: {
     backgroundColor: 'white',
-    padding: 20,
+    padding: 24,
     margin: 20,
-    borderRadius: 8,
+    borderRadius: 16,
+  },
+  modalSubtitle: {
+    marginBottom: 8,
+    color: '#666',
   },
   input: {
-    marginVertical: 15,
+    marginVertical: 16,
   },
-  button: {
-    marginTop: 10,
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  flexBtn: {
+    minWidth: 100,
   },
 });

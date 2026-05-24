@@ -66,22 +66,21 @@ const LANE_MAP = [
 - **1-4 Value:** Render a `Box` geometry.
 - **Height:** `floors * UNIT_HEIGHT`.
 - **Coloring:**
-    - **Default:** Minimal Material Gray/White.
-    - **Red Status:** Applied if ANY of the 3 factors were not paid in the previous month.
+    - **Green Status:** Applied if ALL 3 factors for the selected tab/view were paid in the current month.
+    - **Red Status:** Default state; applied if any factors are missing for the selected factor view.
 - **Interactivity:** Raycasting (via `@react-three/fiber`) detects taps on buildings to open the details overlay.
 
 ## 5. User Interface (Material Expressive)
 
 ### Main Scene
 - OrbitControls for panning, zooming, and rotating the lane.
-- A toggle to switch between "Status View" (Red/Normal) and "Neutral View".
+- **Factor Tabs:** Top-level navigation to switch between Factor 1, Factor 2, and Factor 3 views.
+- **Collection Widget:** A floating card showing `<Total Collection> | <Target>` for the active factor.
 
 ### Building Detail Overlay (BottomSheet/Modal)
 - **Header:** House Number + Owner Name.
 - **Visuals:** Building image from storage (click to update via Camera).
-- **Payment Matrix:** 
-    - A 3-row (factors) by X-column (months) grid.
-    - Colored indicators (Green for paid, Gray for unpaid).
+- **Payment Tabs:** Three tabs, one for each factor, showing the month-by-year grid.
 - **Actions:** "Log Payment" button opens a form for the current user to record a transaction.
 
 ## 6. Security & Management
