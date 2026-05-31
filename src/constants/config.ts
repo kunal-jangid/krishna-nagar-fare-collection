@@ -16,3 +16,5 @@ export const UI_CONSTANTS = {
   WHITE_STATUS_COLOR: '#ffffff',
   HOVER_COLOR: '#e0e0e0',
 };
+
+export const SYNC_INTERVAL_MS = 20000; // 2 minutes

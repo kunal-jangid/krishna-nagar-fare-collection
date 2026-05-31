@@ -21,6 +21,7 @@
     "expo-gl": "~56.0.5",
     "expo-image": "~56.0.9",
     "expo-image-picker": "~56.0.13",
+    "expo-sharing": "~56.0.13",
     "expo-sqlite": "~56.0.4",
     "expo-status-bar": "~56.0.4",
     "expo-web-browser": "~56.0.5",

@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  PaperProvider, 
-  MD3LightTheme, 
-  SegmentedButtons, 
-  Card, 
-  Text, 
-  Menu, 
+import {
+  PaperProvider,
+  MD3LightTheme,
+  SegmentedButtons,
+  Card,
+  Text,
+  Menu,
   Button,
   Portal,
   Modal,
@@ -22,9 +22,12 @@ import { BuildingOverlay } from './src/components/ui/BuildingOverlay';
 import { BuildingData } from './src/types';
 import { useBuildingData } from './src/hooks/useBuildingData';
 import { uploadBuildingImage } from './src/services/imageService';
+import { exportFactorToCSV } from './src/utils/csvExport';
 import { supabase } from './src/lib/supabase';
 import { Auth } from './src/components/Auth';
 import { Session } from '@supabase/supabase-js';
+
+import { setLoggerUser, logger } from './src/utils/logger';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -37,11 +40,26 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session) {
+        const name = session.user.user_metadata?.full_name || session.user.email || 'Unknown';
+        setLoggerUser(name);
+        logger.info('App session resumed', { user: name });
+      }
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) {
+        const name = session.user.user_metadata?.full_name || session.user.email || 'Unknown';
+        setLoggerUser(name);
+        logger.info(`Auth state change: ${_event}`, { user: name });
+      } else {
+        setLoggerUser(null);
+        logger.info('User logged out');
+      }
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   if (!session) {
@@ -69,24 +87,24 @@ function MainApp({ userName }: { userName: string }) {
     updateConfig,
     updateBuilding,
     refresh,
+    forceSync,
     paymentLogs
   } = useBuildingData();
-
   const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D');
   const [activeFactorId, setActiveFactorId] = useState<number>(1);
   const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth() + 1);
-  const [selectedBuildingCoord, setSelectedBuildingCoord] = useState<{row: number, col: number} | null>(null);
+  const [selectedBuildingCoord, setSelectedBuildingCoord] = useState<{ row: number, col: number } | null>(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
-  
+
   // UI States
   const [menuVisible, setMenuVisible] = useState(false);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
   const [newTarget, setNewTarget] = useState('');
 
   // Derive target based on active factor
-  const activeTarget = activeFactorId === 1 ? config.factor_1_target : 
-                       activeFactorId === 2 ? config.factor_2_target : config.factor_3_target;
-  
+  const activeTarget = activeFactorId === 1 ? config.factor_1_target :
+    activeFactorId === 2 ? config.factor_2_target : config.factor_3_target;
+
   const currentTotal = getTotalCollection(activeFactorId, activeMonth);
 
   const selectedBuilding = selectedBuildingCoord ? (
@@ -127,8 +145,8 @@ function MainApp({ userName }: { userName: string }) {
     const targetValue = parseFloat(newTarget);
     if (!isNaN(targetValue)) {
       const updateObj = activeFactorId === 1 ? { factor_1_target: targetValue } :
-                        activeFactorId === 2 ? { factor_2_target: targetValue } : 
-                        { factor_3_target: targetValue };
+        activeFactorId === 2 ? { factor_2_target: targetValue } :
+          { factor_3_target: targetValue };
       await updateConfig(updateObj);
       setTargetModalVisible(false);
     }
@@ -140,7 +158,7 @@ function MainApp({ userName }: { userName: string }) {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider 
+      <PaperProvider
         theme={MD3LightTheme}
         settings={{
           icon: props => <MaterialCommunityIcons {...props} />,
@@ -162,31 +180,49 @@ function MainApp({ userName }: { userName: string }) {
 
           {/* Month Selection & View Toggle Bar */}
           <View style={styles.monthContainer}>
-            <Menu
-              visible={menuVisible}
-              onDismiss={() => setMenuVisible(false)}
-              anchor={
-                <Button 
-                  mode="outlined" 
-                  onPress={() => setMenuVisible(true)}
-                  icon="calendar-month"
-                  style={styles.monthBtn}
-                >
-                  Viewing: {MONTHS[activeMonth - 1]} 2026
-                </Button>
-              }
-            >
-              {MONTHS.map((m, i) => (
-                <Menu.Item 
-                  key={i} 
-                  onPress={() => { setActiveMonth(i + 1); setMenuVisible(false); }} 
-                  title={m} 
-                />
-              ))}
-            </Menu>
+            <View style={styles.monthDropdownWrapper}>
+              <Menu
+                visible={menuVisible}
+                onDismiss={() => setMenuVisible(false)}
+                anchor={
+                  <Button 
+                    mode="outlined" 
+                    onPress={() => setMenuVisible(true)}
+                    icon="calendar-month"
+                    style={styles.monthBtn}
+                  >
+                    {MONTHS[activeMonth - 1]} 2026
+                  </Button>
+                }
+              >
+                {MONTHS.map((m, i) => (
+                  <Menu.Item 
+                    key={i} 
+                    onPress={() => { setActiveMonth(i + 1); setMenuVisible(false); }} 
+                    title={m} 
+                  />
+                ))}
+              </Menu>
+            </View>
 
             {/* View Mode Toggle */}
+
             <View style={styles.viewToggle}>
+              <IconButton
+                icon="sync"
+                size={24}
+                onPress={() => forceSync()}
+              />
+              <IconButton
+                icon="file-excel-outline"
+                size={24}
+                onPress={() => exportFactorToCSV(
+                  activeFactorId,
+                  activeFactorId === 1 ? config.factor_1_label : activeFactorId === 2 ? config.factor_2_label : config.factor_3_label,
+                  buildings,
+                  paymentLogs
+                )}
+              />
               <IconButton
                 icon={viewMode === '3D' ? 'view-grid' : 'cube-outline'}
                 mode="contained-tonal"
@@ -203,8 +239,8 @@ function MainApp({ userName }: { userName: string }) {
 
           {/* Visualization Scene */}
           {viewMode === '3D' ? (
-            <Scene 
-              onBuildingPress={handleBuildingPress} 
+            <Scene
+              onBuildingPress={handleBuildingPress}
               buildings={buildings}
               buildingMap={buildingMap}
               getBuildingStatus={(id, fid) => getBuildingStatus(id, fid, activeMonth)}
@@ -219,7 +255,7 @@ function MainApp({ userName }: { userName: string }) {
               activeFactorId={activeFactorId}
             />
           )}
-          
+
           {/* Floating Collection Widget */}
           <View style={styles.widgetWrapper}>
             <Card style={styles.widget}>
@@ -228,11 +264,11 @@ function MainApp({ userName }: { userName: string }) {
                   <Text variant="labelSmall" numberOfLines={1}>Collection</Text>
                   <Text variant="titleMedium">₹{currentTotal}</Text>
                 </View>
-                
+
                 <View style={styles.divider} />
-                
-                <TouchableOpacity 
-                  style={styles.stat} 
+
+                <TouchableOpacity
+                  style={styles.stat}
                   onPress={openTargetModal}
                   activeOpacity={0.7}
                 >
@@ -247,9 +283,9 @@ function MainApp({ userName }: { userName: string }) {
 
           {/* Target Edit Modal */}
           <Portal>
-            <Modal 
-              visible={targetModalVisible} 
-              onDismiss={() => setTargetModalVisible(false)} 
+            <Modal
+              visible={targetModalVisible}
+              onDismiss={() => setTargetModalVisible(false)}
               contentContainerStyle={styles.modal}
             >
               <Text variant="headlineSmall">Update Target</Text>
@@ -315,12 +351,17 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
   },
-  monthBtn: {
-    borderRadius: 8,
+  monthDropdownWrapper: {
     flex: 1,
     marginRight: 8,
   },
+  monthBtn: {
+    borderRadius: 8,
+    width: '100%',
+  },
   viewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   widgetWrapper: {

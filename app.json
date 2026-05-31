@@ -26,7 +26,8 @@
       "expo-image",
       "expo-asset",
       "expo-sqlite",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sharing"
     ]
   }
 }

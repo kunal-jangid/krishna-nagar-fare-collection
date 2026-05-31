@@ -23,6 +23,13 @@ export interface PaymentLog {
   created_at: string;
 }
 
+export interface AppLog {
+  level: 'INFO' | 'WARN' | 'ERROR';
+  message: string;
+  details?: any;
+  user_name?: string;
+}
+
 export interface AppConfig {
   id?: string;
   factor_1_label: string;

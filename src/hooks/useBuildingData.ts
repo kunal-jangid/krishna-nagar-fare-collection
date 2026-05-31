@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { BuildingData, PaymentLog, AppConfig } from '../types';
-import { DEFAULT_APP_CONFIG } from '../constants/config';
+import { DEFAULT_APP_CONFIG, SYNC_INTERVAL_MS } from '../constants/config';
 import { getLocalConfig, saveLocalConfig, queueSync, getDB } from '../lib/localStorage';
+import { logger } from '../utils/logger';
 
 export type StatusType = 'green' | 'red' | 'grey';
 
@@ -11,6 +12,7 @@ export const useBuildingData = () => {
   const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>([]);
   const [config, setConfig] = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Load targets from local storage
   const loadLocalConfig = async () => {
@@ -28,85 +30,117 @@ export const useBuildingData = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    // Reduced noise: only log in console for dev, not to Supabase for every refresh
+    console.log('[INFO] Refreshing building and payment data from Supabase...');
     
-    // Fetch buildings from Supabase
-    const { data: buildingsData } = await supabase
-      .from('buildings')
-      .select('*');
-    
-    // Fetch logs from Supabase
-    const { data: logsData } = await supabase
-      .from('payment_logs')
-      .select('*')
-      .eq('year', new Date().getFullYear());
+    try {
+      // Fetch buildings from Supabase
+      const { data: buildingsData, error: bError } = await supabase
+        .from('buildings')
+        .select('*');
+      
+      if (bError) logger.error('Fetch buildings failed', { error: bError.message });
 
-    // Labels still come from Supabase if needed, or fallback to default
-    const { data: configData } = await supabase
-      .from('app_config')
-      .select('factor_1_label, factor_2_label, factor_3_label')
-      .single();
+      // Fetch logs from Supabase
+      const { data: logsData, error: lError } = await supabase
+        .from('payment_logs')
+        .select('*')
+        .eq('year', new Date().getFullYear());
+        
+      if (lError) logger.error('Fetch payment logs failed', { error: lError.message });
 
-    if (buildingsData) setBuildings(buildingsData);
-    if (logsData) setPaymentLogs(logsData);
-    
-    if (configData) {
-      setConfig(prev => ({
-        ...prev,
-        ...configData
-      }));
+      // Labels still come from Supabase if needed, or fallback to default
+      const { data: configData } = await supabase
+        .from('app_config')
+        .select('factor_1_label, factor_2_label, factor_3_label')
+        .single();
+
+      if (buildingsData) setBuildings(buildingsData);
+      if (logsData) setPaymentLogs(logsData);
+      
+      if (configData) {
+        setConfig(prev => ({
+          ...prev,
+          ...configData
+        }));
+      }
+
+      await loadLocalConfig();
+    } catch (err: any) {
+      logger.error('Unexpected error in fetchData', { error: err.message });
+    } finally {
+      setLoading(false);
     }
-
-    await loadLocalConfig();
-    setLoading(false);
   };
 
-  // Background Sync Effect (every 2 minutes)
-  useEffect(() => {
-    const syncInterval = setInterval(async () => {
+  const forceSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
       const db = await getDB();
       const pending = await db.getAllAsync<{ id: number, table_name: string, action: string, data: string }>(
         'SELECT * FROM pending_sync ORDER BY created_at ASC'
       );
 
-      if (pending.length === 0) return;
+      if (pending.length > 0) {
+        logger.info(`Syncing ${pending.length} pending transactions/updates to cloud...`);
 
-      console.log(`Background sync: processing ${pending.length} items...`);
+        for (const item of pending) {
+          const data = JSON.parse(item.data);
+          let error = null;
 
-      for (const item of pending) {
-        const data = JSON.parse(item.data);
-        let error = null;
+          if (item.table_name === 'payment_logs') {
+            const { error: syncErr } = await supabase.from('payment_logs').insert(data);
+            error = syncErr;
+          } else if (item.table_name === 'buildings') {
+            const { error: syncErr } = await supabase.from('buildings').insert(data);
+            error = syncErr;
+          }
 
-        if (item.table_name === 'payment_logs') {
-          const { error: syncErr } = await supabase.from('payment_logs').insert(data);
-          error = syncErr;
-        } else if (item.table_name === 'buildings') {
-          const { error: syncErr } = await supabase.from('buildings').insert(data);
-          error = syncErr;
+          if (!error) {
+            await db.runAsync('DELETE FROM pending_sync WHERE id = ?', [item.id]);
+          } else {
+            logger.error(`Sync failed for item ${item.id} on table ${item.table_name}`, { error: error.message });
+          }
         }
-
-        if (!error) {
-          await db.runAsync('DELETE FROM pending_sync WHERE id = ?', [item.id]);
-        } else {
-          console.error(`Sync failed for item ${item.id}:`, error.message);
-        }
+        logger.info('Background sync cycle complete.');
       }
       
-      await fetchData(); // Refresh data after successful sync
-    }, 120000); // 120,000 ms = 2 minutes
+      await fetchData(); 
+    } catch (e: any) {
+      logger.error('Force sync failed', { error: e.message });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Background Sync Effect
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      forceSync();
+    }, SYNC_INTERVAL_MS);
 
     return () => clearInterval(syncInterval);
-  }, [config]);
+  }, [config, isSyncing]);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const logPayment = async (building: BuildingData, factorId: number, month: number, amount: number, userName: string) => {
+    const factorLabel = factorId === 1 ? config.factor_1_label : factorId === 2 ? config.factor_2_label : config.factor_3_label;
+    logger.info(`Transaction added for house no. ${building.house_no}: Paid ₹${amount} for ${factorLabel} (Month ${month})`, { 
+      house: building.house_no, 
+      factorId, 
+      month, 
+      amount 
+    });
+
     let buildingId = building.building_id;
     const isRealUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(buildingId);
 
-    // If building is not in Supabase yet, we need to register it (or queue it)
     if (!isRealUUID) {
+      logger.info(`Registering house ${building.house_no} in Supabase for the first time...`);
       const { data: newBuilding, error: bError } = await supabase
         .from('buildings')
         .insert({
@@ -123,7 +157,7 @@ export const useBuildingData = () => {
         .single();
       
       if (bError) {
-        console.warn('Supabase building creation failed, queuing locally...');
+        logger.error('Supabase building registration failed', { error: bError.message });
         return; 
       }
       buildingId = newBuilding.building_id;
@@ -138,25 +172,23 @@ export const useBuildingData = () => {
       created_by_name: userName,
     };
 
-    // Real-time optimistic local update
     setPaymentLogs(prev => [...prev, { ...payload, id: 'temp-' + Date.now(), created_at: new Date().toISOString(), created_by: '' } as PaymentLog]);
 
-    // Queue for background sync
     await queueSync('payment_logs', 'INSERT', payload);
+    logger.info(`Payment for house ${building.house_no} queued for cloud sync.`);
   };
 
   const updateConfig = async (newConfig: Partial<AppConfig>) => {
-    // Local target updates only
     const updatedConfig = { ...config, ...newConfig };
     setConfig(updatedConfig);
     
-    // Save only targets to local storage
     const targets = {
       factor_1_target: updatedConfig.factor_1_target,
       factor_2_target: updatedConfig.factor_2_target,
       factor_3_target: updatedConfig.factor_3_target,
     };
     await saveLocalConfig('targets', targets);
+    logger.info('Collection targets updated locally.', targets);
   };
 
   const buildingMap = useMemo(() => {
@@ -178,11 +210,10 @@ export const useBuildingData = () => {
   const getBuildingStatus = useCallback((buildingId: string, activeFactorId: number, month: number): StatusType => {
     const building = buildings.find(b => b.building_id === buildingId);
     
-    // Check if building is assigned to track this factor
     const isAssigned = building ? (
       activeFactorId === 1 ? building.track_factor_1 :
       activeFactorId === 2 ? building.track_factor_2 : building.track_factor_3
-    ) : true; // Default to true for mock buildings
+    ) : true;
 
     if (!isAssigned) return 'grey';
 
@@ -197,6 +228,17 @@ export const useBuildingData = () => {
   }, [paymentLogs]);
 
   const updateBuilding = async (buildingId: string, updates: Partial<BuildingData>) => {
+    const building = buildings.find(b => b.building_id === buildingId);
+    const houseName = building?.house_no || buildingId;
+    
+    let changeLog = [];
+    if (updates.house_no || updates.owner_name) changeLog.push('metadata updated');
+    if (updates.track_factor_1 !== undefined || updates.track_factor_2 !== undefined || updates.track_factor_3 !== undefined) {
+      changeLog.push('factors changed');
+    }
+    
+    logger.info(`Configuration for house no. ${houseName} changed: ${changeLog.join(' & ')}`, updates);
+
     const isRealUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(buildingId);
 
     if (isRealUUID) {
@@ -208,10 +250,9 @@ export const useBuildingData = () => {
       if (!error) {
         await fetchData();
       } else {
-        console.error('Error updating building:', error.message);
+        logger.error('Supabase metadata update failed', { error: error.message, buildingId });
       }
     } else {
-      // For mock buildings, we create them first with the updates
       const coords = buildingId.split('-');
       const { error } = await supabase
         .from('buildings')
@@ -223,6 +264,8 @@ export const useBuildingData = () => {
       
       if (!error) {
         await fetchData();
+      } else {
+        logger.error('Supabase building creation failed during metadata update', { error: error.message });
       }
     }
   };
@@ -238,6 +281,7 @@ export const useBuildingData = () => {
     getTotalCollection,
     updateConfig,
     updateBuilding,
+    forceSync,
     refresh: fetchData 
   };
 };

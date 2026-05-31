@@ -30,3 +30,12 @@ CREATE TABLE payment_logs (
   created_by_name text,
   created_at timestamptz DEFAULT now()
 );
+
+CREATE TABLE system_logs (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  level text NOT NULL,
+  message text NOT NULL,
+  details jsonb,
+  user_name text,
+  created_at timestamptz DEFAULT now()
+);
