@@ -3,6 +3,8 @@ import { registerRootComponent } from 'expo';
 import { LogBox } from 'react-native';
 
 import App from './App';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import React from 'react';
 
 // 1. Silence THREE.Clock deprecation warning (internal to Three.js and Fiber)
 LogBox.ignoreLogs([
@@ -25,5 +27,7 @@ console.log = (...args) => {
   originalLog(...args);
 };
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-registerRootComponent(App);
+const Root = () => React.createElement(ErrorBoundary, null, React.createElement(App, null));
+
+// registerRootComponent calls AppRegistry.registerComponent('main', () => Root);
+registerRootComponent(Root);

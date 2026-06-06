@@ -43,7 +43,7 @@ export const BuildingOverlay = ({
 
   // Sync edit states when building changes
   useEffect(() => {
-    if (building) {
+    if (building && !isEditing) {
       setEditHouseNo(building.house_no);
       setEditOwnerName(building.owner_name);
       setEditPhoneNumber(building.phone_number || '');
@@ -64,7 +64,7 @@ export const BuildingOverlay = ({
         else if (building.track_factor_2 !== false) setActiveFactor('2');
       }
     }
-  }, [building, visible]);
+  }, [building, visible, isEditing]);
 
   if (!building) return null;
 
@@ -90,7 +90,7 @@ export const BuildingOverlay = ({
     await onUpdateMetadata(building.building_id, {
       house_no: editHouseNo,
       owner_name: editOwnerName,
-      phone_number: editPhoneNumber === '' ? null : editPhoneNumber,
+      phone_number: editPhoneNumber === '' ? undefined : editPhoneNumber,
       track_factor_1: editTrackF1,
       track_factor_2: editTrackF2,
       track_factor_3: editTrackF3,
