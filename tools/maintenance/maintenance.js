@@ -57,6 +57,7 @@ const resetDatabase = async () => {
       .update({
         owner_name: '',
         house_no: '',
+        phone_number: null,
         image_url: null,
         track_factor_1: false,
         track_factor_2: false,

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Modal, Portal, Text, Button, Card, Divider, SegmentedButtons, TextInput, IconButton, Switch } from 'react-native-paper';
+import { Modal, Portal, Text, Button, Card, Divider, SegmentedButtons, TextInput, IconButton, Switch, HelperText } from 'react-native-paper';
 import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { BuildingData, PaymentLog, AppConfig } from '../../types';
 import { PaymentMatrix } from './PaymentMatrix';
 
@@ -34,6 +35,8 @@ export const BuildingOverlay = ({
   // Edit states
   const [editHouseNo, setEditHouseNo] = useState('');
   const [editOwnerName, setEditOwnerName] = useState('');
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
+  const [phoneError, setPhoneError] = useState(false);
   const [editTrackF1, setEditTrackF1] = useState(true);
   const [editTrackF2, setEditTrackF2] = useState(true);
   const [editTrackF3, setEditTrackF3] = useState(true);
@@ -43,6 +46,8 @@ export const BuildingOverlay = ({
     if (building) {
       setEditHouseNo(building.house_no);
       setEditOwnerName(building.owner_name);
+      setEditPhoneNumber(building.phone_number || '');
+      setPhoneError(false);
       setEditTrackF1(building.track_factor_1 ?? true);
       setEditTrackF2(building.track_factor_2 ?? true);
       setEditTrackF3(building.track_factor_3 ?? true);
@@ -63,15 +68,46 @@ export const BuildingOverlay = ({
 
   if (!building) return null;
 
+  const validatePhone = (phone: string) => {
+    if (phone === '') return true; // Optional field
+    // Basic regex: allows optional +, numbers, spaces, dashes, 10-15 chars
+    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s\./0-9]*$/;
+    return phoneRegex.test(phone) && phone.replace(/[^0-9]/g, '').length >= 10;
+  };
+
+  const handlePhoneChange = (text: string) => {
+    setEditPhoneNumber(text);
+    if (text !== '') {
+      setPhoneError(!validatePhone(text));
+    } else {
+      setPhoneError(false);
+    }
+  };
+
   const handleSaveMetadata = async () => {
+    if (phoneError) return;
+    
     await onUpdateMetadata(building.building_id, {
       house_no: editHouseNo,
       owner_name: editOwnerName,
+      phone_number: editPhoneNumber === '' ? null : editPhoneNumber,
       track_factor_1: editTrackF1,
       track_factor_2: editTrackF2,
       track_factor_3: editTrackF3,
     });
     setIsEditing(false);
+  };
+
+  const handleCall = () => {
+    if (building.phone_number) Linking.openURL(`tel:${building.phone_number}`);
+  };
+
+  const handleWhatsApp = () => {
+    if (building.phone_number) {
+      // Remove non-numeric characters for WhatsApp link
+      const cleanPhone = building.phone_number.replace(/[^0-9]/g, '');
+      Linking.openURL(`whatsapp://send?phone=${cleanPhone}`);
+    }
   };
 
   const isAssigned = 
@@ -131,6 +167,18 @@ export const BuildingOverlay = ({
                         dense
                         style={styles.editInput}
                       />
+                      <TextInput
+                        label="Phone Number"
+                        value={editPhoneNumber}
+                        onChangeText={handlePhoneChange}
+                        mode="outlined"
+                        dense
+                        keyboardType="phone-pad"
+                        style={styles.editInput}
+                        error={phoneError}
+                      />
+                      {phoneError && <HelperText type="error" visible={phoneError}>Invalid phone format (need at least 10 digits)</HelperText>}
+                      
                       <Text variant="labelLarge" style={styles.switchLabel}>Track Factors:</Text>
                       <View style={styles.switchRow}>
                         <Text variant="bodyMedium">{config.factor_1_label}</Text>
@@ -149,6 +197,29 @@ export const BuildingOverlay = ({
                     <>
                       <Text variant="headlineSmall" style={styles.title}>House {building.house_no}</Text>
                       <Text variant="titleMedium" style={styles.subtitle}>{building.owner_name}</Text>
+                      
+                      {building.phone_number && (
+                        <View style={styles.contactRow}>
+                          <Button 
+                            icon="phone" 
+                            mode="contained-tonal" 
+                            onPress={handleCall}
+                            style={styles.contactBtn}
+                          >
+                            Call
+                          </Button>
+                          <Button 
+                            icon="whatsapp" 
+                            mode="contained-tonal" 
+                            buttonColor="#25D366"
+                            textColor="white"
+                            onPress={handleWhatsApp}
+                            style={styles.contactBtn}
+                          >
+                            WhatsApp
+                          </Button>
+                        </View>
+                      )}
                     </>
                   )}
                 </View>
@@ -156,11 +227,18 @@ export const BuildingOverlay = ({
                   icon={isEditing ? "check" : "pencil"} 
                   mode="contained-tonal"
                   onPress={isEditing ? handleSaveMetadata : () => setIsEditing(true)}
+                  disabled={isEditing && phoneError}
                 />
                 {isEditing && (
                   <IconButton 
                     icon="close" 
-                    onPress={() => { setIsEditing(false); setEditHouseNo(building.house_no); setEditOwnerName(building.owner_name); }}
+                    onPress={() => { 
+                      setIsEditing(false); 
+                      setEditHouseNo(building.house_no); 
+                      setEditOwnerName(building.owner_name); 
+                      setEditPhoneNumber(building.phone_number || '');
+                      setPhoneError(false);
+                    }}
                   />
                 )}
               </View>
@@ -254,6 +332,15 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     opacity: 0.7,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  contactBtn: {
+    flex: 1,
   },
   divider: {
     marginVertical: 12,

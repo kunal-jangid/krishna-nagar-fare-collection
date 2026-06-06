@@ -6,6 +6,7 @@ export interface BuildingData {
   col: number;
   floors: number;
   image_url?: string;
+  phone_number?: string;
   track_factor_1: boolean;
   track_factor_2: boolean;
   track_factor_3: boolean;

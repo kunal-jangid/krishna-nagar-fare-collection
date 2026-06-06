@@ -87,6 +87,7 @@ export const useBuildingData = () => {
         row: building.row,
         col: building.col,
         floors: building.floors,
+        phone_number: building.phone_number,
         track_factor_1: building.track_factor_1 ?? true,
         track_factor_2: building.track_factor_2 ?? true,
         track_factor_3: building.track_factor_3 ?? true,

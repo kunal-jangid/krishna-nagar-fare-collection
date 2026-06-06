@@ -186,6 +186,7 @@ function MainApp({ userName }: { userName: string }) {
     col: selectedBuildingCoord.col,
     floors: dbBuilding?.floors || 2,
     image_url: dbBuilding?.image_url,
+    phone_number: dbBuilding?.phone_number,
     track_factor_1: dbBuilding?.track_factor_1 ?? true,
     track_factor_2: dbBuilding?.track_factor_2 ?? true,
     track_factor_3: dbBuilding?.track_factor_3 ?? true,
