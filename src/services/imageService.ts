@@ -23,30 +23,45 @@ export const uploadBuildingImage = async (building: BuildingData) => {
 
   try {
     let buildingId = building.building_id;
-    const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(buildingId);
+    const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(buildingId) || 
+                   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(buildingId);
+
+    // Prepare robust metadata (ensures identity for RLS policies)
+    const buildingPayload = {
+      house_no: building.house_no || `HN-${building.row}-${building.col}`,
+      owner_name: building.owner_name || `Resident ${building.row}-${building.col}`,
+      row: building.row,
+      col: building.col,
+      floors: building.floors || 2,
+      track_factor_1: building.track_factor_1 ?? true,
+      track_factor_2: building.track_factor_2 ?? true,
+      track_factor_3: building.track_factor_3 ?? true,
+    };
 
     if (!isUUID) {
-      console.log('Building not in DB, auto-registering before image update...');
+      console.log('[INFO] Auto-registering new building before image upload...');
       const { data: newBuilding, error: bError } = await supabase
         .from('buildings')
-        .insert({
-          house_no: building.house_no,
-          owner_name: building.owner_name,
-          row: building.row,
-          col: building.col,
-          floors: building.floors,
-          track_factor_1: building.track_factor_1 ?? true,
-          track_factor_2: building.track_factor_2 ?? true,
-          track_factor_3: building.track_factor_3 ?? true,
-        })
+        .insert(buildingPayload)
         .select()
         .single();
       
       if (bError) {
-        console.error('Error auto-registering building for image:', bError.message);
+        console.error('[ERROR] Building registration failed:', bError.message);
         return null;
       }
       buildingId = newBuilding.building_id;
+    } else {
+      // Even if it has a UUID, ensure it has metadata (handles reset houses)
+      console.log('[INFO] Ensuring building metadata exists before upload...');
+      const { error: uError } = await supabase
+        .from('buildings')
+        .update(buildingPayload)
+        .eq('building_id', buildingId);
+      
+      if (uError) {
+        console.warn('[WARN] Metadata update before upload failed:', uError.message);
+      }
     }
 
     // 2. Define filenames and paths
@@ -59,16 +74,26 @@ export const uploadBuildingImage = async (building: BuildingData) => {
       from: asset.uri,
       to: localUri
     });
-    console.log('Image saved locally:', localUri);
+    console.log('[INFO] Image saved locally:', localUri);
 
     // 4. Cloud Backup
-    const localFile = new File(localUri);
-    const base64 = await localFile.base64();
-    const arrayBuffer = decode(base64);
-    const filePath = `buildings/${fileName}`;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('[ERROR] No active session found. Upload aborted.');
+      return localUri;
+    }
+
+    const userId = session.user.id;
+    // Including userId in path often satisfies default Supabase Storage policies
+    const filePath = `buildings/${userId}/${fileName}`;
     const contentType = `image/${fileExt === 'png' ? 'png' : 'jpeg'}`;
 
+    // Fix: Properly read as base64 and decode to ArrayBuffer
+    const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+    const arrayBuffer = decode(base64);
+
     try {
+      console.log(`[INFO] Uploading to storage for user ${userId}: ${filePath}...`);
       const { error: storageError } = await supabase.storage
         .from('building-images')
         .upload(filePath, arrayBuffer, {
@@ -85,7 +110,7 @@ export const uploadBuildingImage = async (building: BuildingData) => {
           
         if (publicUrl && publicUrl.startsWith('http')) {
           console.log('[SUCCESS] Cloud storage public URL:', publicUrl);
-          // ONLY update database with verified Public URL
+          // Update database with verified Public URL
           const { error: dbError } = await supabase
             .from('buildings')
             .update({ image_url: publicUrl })
@@ -97,8 +122,6 @@ export const uploadBuildingImage = async (building: BuildingData) => {
             console.log('[INFO] Building record updated with cloud image URL.');
             return publicUrl;
           }
-        } else {
-          console.warn('[WARN] getPublicUrl returned an invalid URL:', publicUrl);
         }
       } else {
         console.error('[ERROR] Storage upload failed:', storageError.message);
@@ -109,8 +132,8 @@ export const uploadBuildingImage = async (building: BuildingData) => {
 
     console.log('[INFO] Returning local URI for immediate preview:', localUri);
     return localUri; 
-  } catch (err) {
-    console.error('Unexpected upload error:', err);
+  } catch (err: any) {
+    console.error('[ERROR] Unexpected upload error:', err.message);
     return null;
   }
 };
