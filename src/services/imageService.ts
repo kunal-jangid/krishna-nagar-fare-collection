@@ -23,10 +23,6 @@ export const uploadBuildingImage = async (building: BuildingData) => {
 
   try {
     let buildingId = building.building_id;
-    // We expect the caller to have registered the building or we do it here if needed,
-    // but the plan says centralized logic. For now, let's keep the registration here 
-    // but ensure we ONLY update DB with public URL.
-    
     const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(buildingId);
 
     if (!isUUID) {
@@ -81,24 +77,38 @@ export const uploadBuildingImage = async (building: BuildingData) => {
         });
 
       if (!storageError) {
-        const { data: { publicUrl } } = supabase.storage
+        const { data } = supabase.storage
           .from('building-images')
           .getPublicUrl(filePath);
+        
+        const publicUrl = data.publicUrl;
           
-        // ONLY update database with Public URL
-        await supabase
-          .from('buildings')
-          .update({ image_url: publicUrl })
-          .eq('building_id', buildingId);
-          
-        console.log('Cloud backup ready at:', publicUrl);
-        return publicUrl;
+        if (publicUrl && publicUrl.startsWith('http')) {
+          console.log('[SUCCESS] Cloud storage public URL:', publicUrl);
+          // ONLY update database with verified Public URL
+          const { error: dbError } = await supabase
+            .from('buildings')
+            .update({ image_url: publicUrl })
+            .eq('building_id', buildingId);
+            
+          if (dbError) {
+            console.error('[ERROR] Failed to update building with public URL:', dbError.message);
+          } else {
+            console.log('[INFO] Building record updated with cloud image URL.');
+            return publicUrl;
+          }
+        } else {
+          console.warn('[WARN] getPublicUrl returned an invalid URL:', publicUrl);
+        }
+      } else {
+        console.error('[ERROR] Storage upload failed:', storageError.message);
       }
-    } catch (sErr) {
-      console.warn('Storage sync failed.');
+    } catch (sErr: any) {
+      console.error('[ERROR] Storage sync exception:', sErr.message);
     }
 
-    return localUri; // Return local URI for immediate UI update even if cloud fails
+    console.log('[INFO] Returning local URI for immediate preview:', localUri);
+    return localUri; 
   } catch (err) {
     console.error('Unexpected upload error:', err);
     return null;

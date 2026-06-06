@@ -115,8 +115,14 @@ export const useBuildingData = () => {
         const syncedIds: number[] = [];
 
         for (const item of pending) {
-          const data = JSON.parse(item.data);
+          let data = JSON.parse(item.data);
           let error = null;
+
+          // Safety check: ensure we NEVER sync local file URIs to Supabase
+          if (data.image_url && data.image_url.startsWith('file:///')) {
+            console.warn(`[SYNC] Stripping local URI from ${item.table_name} sync:`, data.image_url);
+            delete data.image_url;
+          }
 
           if (item.table_name === 'payment_logs') {
             const { error: syncErr } = await supabase.from('payment_logs').insert(data);
@@ -236,8 +242,8 @@ export const useBuildingData = () => {
       .reduce((sum, log) => sum + Number(log.amount), 0);
   }, [paymentLogs]);
 
-  const updateBuilding = async (buildingId: string, updates: Partial<BuildingData>) => {
-    const building = buildings.find(b => b.building_id === buildingId);
+  const updateBuilding = async (buildingId: string, updates: Partial<BuildingData>, fallbackBuilding?: BuildingData) => {
+    const building = buildings.find(b => b.building_id === buildingId) || fallbackBuilding;
     const houseName = building?.house_no || buildingId;
     
     let changeLog = [];
@@ -262,8 +268,6 @@ export const useBuildingData = () => {
         logger.error('Supabase metadata update failed', { error: error.message, buildingId });
       }
     } else {
-      // If it's a temp ID, we can still use ensureBuildingRegistered if we have the full building object
-      // or we can just parse the row/col from the building object found in our state
       if (building) {
         const registeredId = await ensureBuildingRegistered({ ...building, ...updates });
         if (registeredId) await fetchData();
