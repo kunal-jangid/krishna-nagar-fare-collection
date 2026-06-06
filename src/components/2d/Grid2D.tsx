@@ -69,7 +69,7 @@ export const Grid2D = ({
               // If mock building, default status logic handled in hook or we can default to red
               const status = building 
                 ? getBuildingStatus(building.building_id, activeFactorId) 
-                : 'red';
+                : 'grey';
               
               return (
                 <GridCell

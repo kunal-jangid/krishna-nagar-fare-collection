@@ -119,7 +119,7 @@ export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogP
         >
           <Text variant="headlineSmall">Log Payment</Text>
           <Text variant="bodyLarge" style={styles.modalSubtitle}>
-            {factorLabel} - {MONTHS[selectedMonth - 1]} 2026
+            {factorLabel} - {MONTHS[selectedMonth - 1]} {new Date().getFullYear()}
           </Text>
           
           <TextInput

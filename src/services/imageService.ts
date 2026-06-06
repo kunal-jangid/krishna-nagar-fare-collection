@@ -23,10 +23,13 @@ export const uploadBuildingImage = async (building: BuildingData) => {
 
   try {
     let buildingId = building.building_id;
-    const isRealUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(buildingId);
+    // We expect the caller to have registered the building or we do it here if needed,
+    // but the plan says centralized logic. For now, let's keep the registration here 
+    // but ensure we ONLY update DB with public URL.
+    
+    const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(buildingId);
 
-    // 1. Auto-register building if it doesn't exist (to fix UUID error)
-    if (!isRealUUID) {
+    if (!isUUID) {
       console.log('Building not in DB, auto-registering before image update...');
       const { data: newBuilding, error: bError } = await supabase
         .from('buildings')
@@ -36,6 +39,9 @@ export const uploadBuildingImage = async (building: BuildingData) => {
           row: building.row,
           col: building.col,
           floors: building.floors,
+          track_factor_1: building.track_factor_1 ?? true,
+          track_factor_2: building.track_factor_2 ?? true,
+          track_factor_3: building.track_factor_3 ?? true,
         })
         .select()
         .single();
@@ -45,7 +51,6 @@ export const uploadBuildingImage = async (building: BuildingData) => {
         return null;
       }
       buildingId = newBuilding.building_id;
-      console.log('Building registered for image:', buildingId);
     }
 
     // 2. Define filenames and paths
@@ -53,22 +58,14 @@ export const uploadBuildingImage = async (building: BuildingData) => {
     const fileName = `${buildingId}-${Date.now()}.${fileExt}`;
     const localUri = `${FileSystem.documentDirectory}${fileName}`;
     
-    // 3. Save locally for instant access
+    // 3. Save locally for instant access (offline cache)
     await FileSystem.copyAsync({
       from: asset.uri,
       to: localUri
     });
     console.log('Image saved locally:', localUri);
 
-    // 4. Update database record to point to LOCAL uri immediately
-    const { error: dbError } = await supabase
-      .from('buildings')
-      .update({ image_url: localUri })
-      .eq('building_id', buildingId);
-
-    if (dbError) console.error('Database update error:', dbError.message);
-
-    // 5. Cloud Backup
+    // 4. Cloud Backup
     const localFile = new File(localUri);
     const base64 = await localFile.base64();
     const arrayBuffer = decode(base64);
@@ -88,21 +85,46 @@ export const uploadBuildingImage = async (building: BuildingData) => {
           .from('building-images')
           .getPublicUrl(filePath);
           
+        // ONLY update database with Public URL
         await supabase
           .from('buildings')
           .update({ image_url: publicUrl })
           .eq('building_id', buildingId);
           
         console.log('Cloud backup ready at:', publicUrl);
-        return publicUrl; // Prefer public URL for consistency
+        return publicUrl;
       }
     } catch (sErr) {
-      console.warn('Storage sync failed, using local copy.');
+      console.warn('Storage sync failed.');
     }
 
-    return localUri;
+    return localUri; // Return local URI for immediate UI update even if cloud fails
   } catch (err) {
     console.error('Unexpected upload error:', err);
     return null;
+  }
+};
+
+/**
+ * Downloads all remote images to local storage for offline access.
+ */
+export const syncImagesLocally = async (buildings: BuildingData[]) => {
+  console.log('Syncing images locally for offline use...');
+  for (const b of buildings) {
+    if (b.image_url && b.image_url.startsWith('http')) {
+      const fileExt = b.image_url.split('.').pop()?.split('?')[0] || 'jpg';
+      const fileName = `${b.building_id}.${fileExt}`;
+      const localUri = `${FileSystem.documentDirectory}${fileName}`;
+      
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      if (!fileInfo.exists) {
+        try {
+          await FileSystem.downloadAsync(b.image_url, localUri);
+          console.log(`Downloaded image for ${b.house_no}`);
+        } catch (e) {
+          console.warn(`Failed to download image for ${b.building_id}`);
+        }
+      }
+    }
   }
 };

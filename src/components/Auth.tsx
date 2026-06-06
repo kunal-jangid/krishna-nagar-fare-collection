@@ -23,12 +23,12 @@ export const Auth = () => {
   }, []);
 
   const performGoogleSignIn = async () => {
-    // makeRedirectUri automatically handles Expo Go vs Standalone app routing
+    // Using makeRedirectUri with explicit path for better reliability in Expo Go
     const redirectUrl = makeRedirectUri({
-      path: '/auth/callback',
+      path: 'auth/callback',
     });
     
-    console.log("Expo Redirect URI:", redirectUrl);
+    console.log("Planned Redirect URI:", redirectUrl);
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -45,11 +45,14 @@ export const Auth = () => {
       }
 
       if (data?.url) {
-        // Just pass the url and redirectUrl directly
+        console.log("Supabase Auth URL:", data.url);
+        // Ensure redirectUrl is passed here so WebBrowser knows what to intercept
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+        console.log("WebBrowser Result Type:", result.type);
         
         if (result.type === 'success' && result.url) {
-          // React Native/Expo URL parsing workaround for fragments
+          console.log("Successful Auth Redirect:", result.url);
+          // Handle the fragment/query param conversion for Supabase
           let targetUrl = result.url;
           if (targetUrl.includes('#')) {
             targetUrl = targetUrl.replace('#', '?');
@@ -60,15 +63,19 @@ export const Auth = () => {
           const refresh_token = urlObj.searchParams.get('refresh_token');
           
           if (access_token && refresh_token) {
-            await supabase.auth.setSession({
+            console.log("Setting Supabase session...");
+            const { error: sessionError } = await supabase.auth.setSession({
               access_token,
               refresh_token,
             });
+            if (sessionError) console.error("Session setting failed:", sessionError.message);
+          } else {
+            console.warn("Required tokens missing from redirect URL");
           }
         }
       }
     } catch (err) {
-      console.error('Sign-in error:', err);
+      console.error('Critical Sign-in error:', err);
     }
   };
 

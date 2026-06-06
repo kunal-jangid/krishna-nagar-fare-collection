@@ -73,6 +73,34 @@ export const useBuildingData = () => {
     }
   };
 
+  const isUUID = (id: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+
+  const ensureBuildingRegistered = async (building: BuildingData): Promise<string | null> => {
+    if (isUUID(building.building_id)) return building.building_id;
+
+    logger.info(`Registering house ${building.house_no} in Supabase for the first time...`);
+    const { data: newBuilding, error: bError } = await supabase
+      .from('buildings')
+      .insert({
+        house_no: building.house_no,
+        owner_name: building.owner_name,
+        row: building.row,
+        col: building.col,
+        floors: building.floors,
+        track_factor_1: building.track_factor_1 ?? true,
+        track_factor_2: building.track_factor_2 ?? true,
+        track_factor_3: building.track_factor_3 ?? true,
+      })
+      .select()
+      .single();
+    
+    if (bError) {
+      logger.error('Supabase building registration failed', { error: bError.message });
+      return null;
+    }
+    return newBuilding.building_id;
+  };
+
   const forceSync = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
@@ -84,6 +112,7 @@ export const useBuildingData = () => {
 
       if (pending.length > 0) {
         logger.info(`Syncing ${pending.length} pending transactions/updates to cloud...`);
+        const syncedIds: number[] = [];
 
         for (const item of pending) {
           const data = JSON.parse(item.data);
@@ -98,10 +127,14 @@ export const useBuildingData = () => {
           }
 
           if (!error) {
-            await db.runAsync('DELETE FROM pending_sync WHERE id = ?', [item.id]);
+            syncedIds.push(item.id);
           } else {
             logger.error(`Sync failed for item ${item.id} on table ${item.table_name}`, { error: error.message });
           }
+        }
+
+        if (syncedIds.length > 0) {
+          await db.runAsync(`DELETE FROM pending_sync WHERE id IN (${syncedIds.join(',')})`);
         }
         logger.info('Background sync cycle complete.');
       }
@@ -121,7 +154,7 @@ export const useBuildingData = () => {
     }, SYNC_INTERVAL_MS);
 
     return () => clearInterval(syncInterval);
-  }, [config, isSyncing]);
+  }, [config]); // config might affect sync parameters, but isSyncing shouldn't reset it
 
   useEffect(() => {
     fetchData();
@@ -136,32 +169,8 @@ export const useBuildingData = () => {
       amount 
     });
 
-    let buildingId = building.building_id;
-    const isRealUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(buildingId);
-
-    if (!isRealUUID) {
-      logger.info(`Registering house ${building.house_no} in Supabase for the first time...`);
-      const { data: newBuilding, error: bError } = await supabase
-        .from('buildings')
-        .insert({
-          house_no: building.house_no,
-          owner_name: building.owner_name,
-          row: building.row,
-          col: building.col,
-          floors: building.floors,
-          track_factor_1: building.track_factor_1,
-          track_factor_2: building.track_factor_2,
-          track_factor_3: building.track_factor_3,
-        })
-        .select()
-        .single();
-      
-      if (bError) {
-        logger.error('Supabase building registration failed', { error: bError.message });
-        return; 
-      }
-      buildingId = newBuilding.building_id;
-    }
+    const buildingId = await ensureBuildingRegistered(building);
+    if (!buildingId) return;
 
     const payload = {
       building_id: buildingId,
@@ -239,7 +248,7 @@ export const useBuildingData = () => {
     
     logger.info(`Configuration for house no. ${houseName} changed: ${changeLog.join(' & ')}`, updates);
 
-    const isRealUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(buildingId);
+    const isRealUUID = isUUID(buildingId);
 
     if (isRealUUID) {
       const { error } = await supabase
@@ -253,19 +262,13 @@ export const useBuildingData = () => {
         logger.error('Supabase metadata update failed', { error: error.message, buildingId });
       }
     } else {
-      const coords = buildingId.split('-');
-      const { error } = await supabase
-        .from('buildings')
-        .insert({
-          row: parseInt(coords[0]),
-          col: parseInt(coords[1]),
-          ...updates
-        });
-      
-      if (!error) {
-        await fetchData();
+      // If it's a temp ID, we can still use ensureBuildingRegistered if we have the full building object
+      // or we can just parse the row/col from the building object found in our state
+      if (building) {
+        const registeredId = await ensureBuildingRegistered({ ...building, ...updates });
+        if (registeredId) await fetchData();
       } else {
-        logger.error('Supabase building creation failed during metadata update', { error: error.message });
+        logger.error('Failed to update building: Building object not found for temp ID', { buildingId });
       }
     }
   };

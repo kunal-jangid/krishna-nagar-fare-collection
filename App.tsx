@@ -21,7 +21,7 @@ import { Grid2D } from './src/components/2d/Grid2D';
 import { BuildingOverlay } from './src/components/ui/BuildingOverlay';
 import { BuildingData } from './src/types';
 import { useBuildingData } from './src/hooks/useBuildingData';
-import { uploadBuildingImage } from './src/services/imageService';
+import { uploadBuildingImage, syncImagesLocally } from './src/services/imageService';
 import { exportFactorToCSV } from './src/utils/csvExport';
 import { supabase } from './src/lib/supabase';
 import { Auth } from './src/components/Auth';
@@ -33,6 +33,8 @@ const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -100,6 +102,13 @@ function MainApp({ userName }: { userName: string }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
   const [newTarget, setNewTarget] = useState('');
+
+  // Sync images locally when buildings are fetched
+  useEffect(() => {
+    if (buildings.length > 0) {
+      syncImagesLocally(buildings);
+    }
+  }, [buildings]);
 
   // Derive target based on active factor
   const activeTarget = activeFactorId === 1 ? config.factor_1_target :
@@ -171,9 +180,9 @@ function MainApp({ userName }: { userName: string }) {
               value={activeFactorId.toString()}
               onValueChange={(val) => setActiveFactorId(parseInt(val))}
               buttons={[
-                { value: '1', label: 'Security', labelStyle: styles.tabLabel },
-                { value: '2', label: 'Thing 1', labelStyle: styles.tabLabel },
-                { value: '3', label: 'Thing 2', labelStyle: styles.tabLabel },
+                { value: '1', label: config.factor_1_label, labelStyle: styles.tabLabel },
+                { value: '2', label: config.factor_2_label, labelStyle: styles.tabLabel },
+                { value: '3', label: config.factor_3_label, labelStyle: styles.tabLabel },
               ]}
             />
           </View>
@@ -191,7 +200,7 @@ function MainApp({ userName }: { userName: string }) {
                     icon="calendar-month"
                     style={styles.monthBtn}
                   >
-                    {MONTHS[activeMonth - 1]} 2026
+                    {MONTHS[activeMonth - 1]} {CURRENT_YEAR}
                   </Button>
                 }
               >

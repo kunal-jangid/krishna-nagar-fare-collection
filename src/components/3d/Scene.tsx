@@ -32,7 +32,7 @@ export const Scene = ({
         const buildingKey = `${rowIndex}-${colIndex}`;
         const building = buildingMap.get(buildingKey);
         
-        const status = building ? getBuildingStatus(building.building_id, activeFactorId) : 'red';
+        const status = building ? getBuildingStatus(building.building_id, activeFactorId) : 'grey';
 
         return (
           <Building

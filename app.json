@@ -11,6 +11,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.krishnanagar.farecollection",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -28,6 +30,12 @@
       "expo-sqlite",
       "expo-web-browser",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "efa2ba3c-9ef2-4353-8125-c92d5450ac65"
+      }
+    },
+    "owner": "kunaljangid2k3"
   }
 }
