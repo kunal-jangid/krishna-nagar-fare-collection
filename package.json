@@ -1,5 +1,5 @@
 {
-  "name": "krishna-nagar-fare-collection",
+  "name": "krishna-nagar-collections",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
