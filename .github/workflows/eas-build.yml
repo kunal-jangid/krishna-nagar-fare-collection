@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+# Explicitly grant permissions needed to create a Release
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK
@@ -28,8 +32,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build on EAS
-        run: eas build --platform android --profile preview --non-interactive
+      - name: Build on EAS and Download APK
+        run: |
+          # Run the build, wait for it to finish, and output results as JSON
+          eas build --platform android --profile preview --non-interactive --wait --json > build_output.json
+          
+          # Extract the APK download URL using jq
+          APK_URL=$(jq -r '.[0].artifacts.buildUrl' build_output.json)
+          echo "Build URL: $APK_URL"
+          
+          # Download the APK to the GitHub runner
+          wget $APK_URL -O KrishnaNagarCollections.apk
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the GitHub CLI (gh) to create a release and upload the APK
+          gh release create v1.0.${{ github.run_number }} KrishnaNagarCollections.apk \
+            --title "Release v1.0.${{ github.run_number }}" \
+            --notes "Automated APK build triggered by pushing to the main branch."
