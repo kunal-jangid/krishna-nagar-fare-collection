@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { memo, useMemo } from 'react';
+import { StyleSheet, View, TouchableOpacity, FlatList, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LANE_MAP } from '../../constants/laneMap';
 import { UI_CONSTANTS } from '../../constants/config';
@@ -14,7 +14,9 @@ interface Grid2DProps {
   activeFactorId: number;
 }
 
-const CELL_SIZE = 45;
+const CELL_SIZE = 50;
+const CELL_MARGIN = 2;
+const TOTAL_CELL_SIZE = CELL_SIZE + (CELL_MARGIN * 2);
 
 const GridCell = memo(({ 
   row, 
@@ -57,36 +59,57 @@ export const Grid2D = ({
   getBuildingStatus, 
   activeFactorId 
 }: Grid2DProps) => {
+  // Flatten the 2D LANE_MAP into a 1D array for FlatList
+  const flatData = useMemo(() => {
+    return LANE_MAP.flatMap((rowArr, rowIndex) =>
+      rowArr.map((floors, colIndex) => ({
+        key: `${rowIndex}-${colIndex}`,
+        rowIndex,
+        colIndex,
+        floors,
+      }))
+    );
+  }, []);
+
+  const numColumns = LANE_MAP[0]?.length || 1;
+
+  const renderItem = ({ item }: { item: typeof flatData[0] }) => {
+    const building = buildingMap.get(item.key);
+    const status = building
+      ? getBuildingStatus(building.building_id, activeFactorId)
+      : 'grey';
+
+    return (
+      <GridCell
+        row={item.rowIndex}
+        col={item.colIndex}
+        floors={item.floors}
+        status={status}
+        onPress={() => onBuildingPress(item.rowIndex, item.colIndex)}
+        houseNo={building?.house_no}
+      />
+    );
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.grid}>
-        {LANE_MAP.map((rowArr, rowIndex) => (
-          <View key={rowIndex} style={styles.row}>
-            {rowArr.map((floors, colIndex) => {
-              const buildingKey = `${rowIndex}-${colIndex}`;
-              const building = buildingMap.get(buildingKey);
-              
-              // If mock building, default status logic handled in hook or we can default to red
-              const status = building 
-                ? getBuildingStatus(building.building_id, activeFactorId) 
-                : 'grey';
-              
-              return (
-                <GridCell
-                  key={colIndex}
-                  row={rowIndex}
-                  col={colIndex}
-                  floors={floors}
-                  status={status}
-                  onPress={() => onBuildingPress(rowIndex, colIndex)}
-                  houseNo={building?.house_no}
-                />
-              );
-            })}
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+    <View style={styles.container}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <FlatList
+          data={flatData}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.key}
+          numColumns={numColumns}
+          contentContainerStyle={styles.content}
+          initialNumToRender={100}
+          maxToRenderPerBatch={100}
+          windowSize={5}
+          removeClippedSubviews={true}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={true}
+        />
+      </ScrollView>
+    </View>
   );
 };
 
@@ -96,24 +119,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f2f5',
   },
   content: {
-    padding: 20,
-    paddingBottom: 120, // Added padding to clear the floating widget
+    padding: 10,
+    paddingBottom: 120,
     alignItems: 'center',
-  },
-  grid: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
   },
   cell: {
     width: CELL_SIZE,
     height: CELL_SIZE,
-    margin: 2,
+    margin: CELL_MARGIN,
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
@@ -126,11 +139,11 @@ const styles = StyleSheet.create({
   emptyCell: {
     width: CELL_SIZE,
     height: CELL_SIZE,
-    margin: 2,
+    margin: CELL_MARGIN,
   },
   houseText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   floorText: {
