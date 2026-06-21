@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { IconButton, Portal, Modal, TextInput, Button, Text } from 'react-native-paper';
 import { PaymentLog } from '../../types';
+import { useUserRole } from '../../hooks/useUserRole';
 
 interface PaymentMatrixProps {
   logs: PaymentLog[];
@@ -9,6 +10,8 @@ interface PaymentMatrixProps {
   factorLabel: string;
   activeMonth: number;
   onLogPayment: (factorId: 1 | 2 | 3, month: number, amount: number) => void;
+  onUpdatePayment?: (logId: string, newAmount: number) => void;
+  onDeletePayment?: (logId: string) => void;
   isAssigned?: boolean;
 }
 
@@ -17,22 +20,50 @@ const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
-export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogPayment, isAssigned = true }: PaymentMatrixProps) => {
+export const PaymentMatrix = ({
+  logs,
+  factorId,
+  factorLabel,
+  activeMonth,
+  onLogPayment,
+  onUpdatePayment,
+  onDeletePayment,
+  isAssigned = true
+}: PaymentMatrixProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(activeMonth);
   const [amount, setAmount] = useState('');
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+
+  const { role: userRole, email: userEmail } = useUserRole();
+  const isAdmin = userRole === 'admin';
+  const canDelete = isAdmin;
 
   // Sync selectedMonth with activeMonth when props change
   useEffect(() => {
     setSelectedMonth(activeMonth);
   }, [activeMonth]);
 
-  const isPaid = (month: number) => {
-    return logs.some(log => log.factor_id === factorId && log.month === month);
+  const getLogForMonth = (month: number) => {
+    return logs.find(log => log.factor_id === factorId && log.month === month);
   };
+
+  const isPaid = (month: number) => !!getLogForMonth(month);
 
   const handleOpenLog = (month: number) => {
     if (!isAssigned) return;
+    const existingLog = getLogForMonth(month);
+
+    // If it's already paid, only admins can open it to edit/delete
+    if (existingLog) {
+      if (!isAdmin) return;
+      setAmount(existingLog.amount.toString());
+      setEditingLogId(existingLog.id);
+    } else {
+      setAmount('');
+      setEditingLogId(null);
+    }
+
     setSelectedMonth(month);
     setModalVisible(true);
   };
@@ -40,9 +71,23 @@ export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogP
   const handleSubmit = () => {
     const parsedAmount = parseFloat(amount);
     if (!isNaN(parsedAmount)) {
-      onLogPayment(factorId, selectedMonth, parsedAmount);
+      if (editingLogId && onUpdatePayment) {
+        onUpdatePayment(editingLogId, parsedAmount);
+      } else {
+        onLogPayment(factorId, selectedMonth, parsedAmount);
+      }
       setModalVisible(false);
       setAmount('');
+      setEditingLogId(null);
+    }
+  };
+
+  const handleDelete = () => {
+    if (editingLogId && onDeletePayment) {
+      onDeletePayment(editingLogId);
+      setModalVisible(false);
+      setAmount('');
+      setEditingLogId(null);
     }
   };
 
@@ -52,11 +97,11 @@ export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogP
       <View style={styles.quickAction}>
         <Button 
           mode="contained-tonal" 
-          icon={isPaid(activeMonth) ? 'check' : 'plus'} 
+          icon={isPaid(activeMonth) ? (isAdmin ? 'pencil' : 'check') : 'plus'}
           onPress={() => handleOpenLog(activeMonth)}
-          disabled={!isAssigned || isPaid(activeMonth)}
+          disabled={!isAssigned || (isPaid(activeMonth) && !isAdmin)}
         >
-          {!isAssigned ? 'Not Tracking' : (isPaid(activeMonth) ? 'Paid for ' : 'Log for ')} {MONTHS[activeMonth - 1]}
+          {!isAssigned ? 'Not Tracking' : (isPaid(activeMonth) ? (isAdmin ? 'Edit ' : 'Paid for ') : 'Log for ')} {MONTHS[activeMonth - 1]}
         </Button>
       </View>
 
@@ -95,11 +140,11 @@ export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogP
                     isActive && isAssigned && styles.activeMonthCell
                   ]}
                   onPress={() => handleOpenLog(monthIndex)}
-                  disabled={!isAssigned}
+                  disabled={!isAssigned || (paid && !isAdmin)}
                   activeOpacity={0.7}
                 >
                   <IconButton
-                    icon={paid ? 'check-circle' : (!isAssigned ? 'circle-off-outline' : 'circle-outline')}
+                    icon={paid ? (isAdmin ? 'pencil-circle' : 'check-circle') : (!isAssigned ? 'circle-off-outline' : 'circle-outline')}
                     iconColor={iconColor}
                     size={22}
                     style={{ margin: 0 }}
@@ -117,7 +162,7 @@ export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogP
           onDismiss={() => setModalVisible(false)} 
           contentContainerStyle={styles.modal}
         >
-          <Text variant="headlineSmall">Log Payment</Text>
+          <Text variant="headlineSmall">{editingLogId ? 'Update Payment' : 'Log Payment'}</Text>
           <Text variant="bodyLarge" style={styles.modalSubtitle}>
             {factorLabel} - {MONTHS[selectedMonth - 1]} {new Date().getFullYear()}
           </Text>
@@ -133,8 +178,19 @@ export const PaymentMatrix = ({ logs, factorId, factorLabel, activeMonth, onLogP
           />
           
           <View style={styles.modalActions}>
+            {editingLogId && canDelete && (
+              <Button
+                onPress={handleDelete}
+                textColor="#ff5252"
+                style={styles.flexBtn}
+              >
+                Delete
+              </Button>
+            )}
             <Button onPress={() => setModalVisible(false)} style={styles.flexBtn}>Cancel</Button>
-            <Button mode="contained" onPress={handleSubmit} style={styles.flexBtn}>Confirm</Button>
+            <Button mode="contained" onPress={handleSubmit} style={styles.flexBtn}>
+              {editingLogId ? 'Update' : 'Confirm'}
+            </Button>
           </View>
         </Modal>
       </Portal>

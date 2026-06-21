@@ -102,3 +102,58 @@ export const resetToFreshStart = async () => {
     throw error;
   }
 };
+
+/**
+ * Imports a new lane map (grid structure) and updates the buildings table.
+ * @param newLaneMap A 2D array representing the new grid structure (floors at each position).
+ */
+export const importLaneMap = async (newLaneMap: number[][]) => {
+  try {
+    logger.info('Starting lane map import...');
+
+    // 1. Fetch existing buildings to preserve metadata
+    const { data: existingBuildings, error: bError } = await supabase.from('buildings').select('*');
+    if (bError) throw bError;
+
+    const buildingMap = new Map<string, any>();
+    existingBuildings?.forEach(b => buildingMap.set(`${b.row}-${b.col}`, b));
+
+    // 2. Prepare new buildings data
+    const newBuildings: any[] = [];
+    newLaneMap.forEach((rowArr, rowIndex) => {
+      rowArr.forEach((floors, colIndex) => {
+        if (floors === 0) return;
+
+        const key = `${rowIndex}-${colIndex}`;
+        const existing = buildingMap.get(key);
+
+        newBuildings.push({
+          row: rowIndex,
+          col: colIndex,
+          floors: floors,
+          house_no: existing?.house_no || '',
+          owner_name: existing?.owner_name || '',
+          phone_number: existing?.phone_number || null,
+          image_url: existing?.image_url || null,
+          track_factor_1: existing?.track_factor_1 ?? true,
+          track_factor_2: existing?.track_factor_2 ?? true,
+          track_factor_3: existing?.track_factor_3 ?? true,
+        });
+      });
+    });
+
+    // 3. Perform upsert on row/col to preserve building_id and link to logs
+    logger.info(`Importing ${newBuildings.length} buildings...`);
+
+    const { error: upsertError } = await supabase
+      .from('buildings')
+      .upsert(newBuildings, { onConflict: 'row,col' });
+
+    if (upsertError) throw upsertError;
+
+    logger.info('Lane map import completed successfully.');
+  } catch (error: any) {
+    logger.error('Lane map import failed', { error: error.message });
+    throw error;
+  }
+};

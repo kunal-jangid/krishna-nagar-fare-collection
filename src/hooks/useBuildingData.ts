@@ -4,6 +4,7 @@ import { BuildingData, PaymentLog, AppConfig } from '../types';
 import { DEFAULT_APP_CONFIG, SYNC_INTERVAL_MS } from '../constants/config';
 import { getLocalConfig, saveLocalConfig, queueSync, getDB } from '../lib/localStorage';
 import { logger } from '../utils/logger';
+import { importLaneMap as dbImportLaneMap } from '../utils/dbMaintenance';
 
 export type StatusType = 'green' | 'red' | 'grey';
 
@@ -243,6 +244,42 @@ export const useBuildingData = () => {
       .reduce((sum, log) => sum + Number(log.amount), 0);
   }, [paymentLogs]);
 
+  const updatePaymentLog = async (logId: string, newAmount: number) => {
+    logger.info(`Updating payment log ${logId} to new amount ₹${newAmount}`);
+
+    // Optimistic update locally
+    setPaymentLogs(prev => prev.map(log =>
+      log.id === logId ? { ...log, amount: newAmount } : log
+    ));
+
+    // Update in Supabase
+    const { error } = await supabase
+      .from('payment_logs')
+      .update({ amount: newAmount })
+      .eq('id', logId);
+
+    if (error) {
+      logger.error(`Failed to update payment log ${logId}`, { error: error.message });
+    }
+  };
+
+  const deletePaymentLog = async (logId: string) => {
+    logger.info(`Deleting payment log ${logId}`);
+
+    // Optimistic update locally
+    setPaymentLogs(prev => prev.filter(log => log.id !== logId));
+
+    // Delete in Supabase
+    const { error } = await supabase
+      .from('payment_logs')
+      .delete()
+      .eq('id', logId);
+
+    if (error) {
+      logger.error(`Failed to delete payment log ${logId}`, { error: error.message });
+    }
+  };
+
   const updateBuilding = async (buildingId: string, updates: Partial<BuildingData>, fallbackBuilding?: BuildingData) => {
     const building = buildings.find(b => b.building_id === buildingId) || fallbackBuilding;
     const houseName = building?.house_no || buildingId;
@@ -278,6 +315,11 @@ export const useBuildingData = () => {
     }
   };
 
+  const importLaneMap = async (newLaneMap: number[][]) => {
+    await dbImportLaneMap(newLaneMap);
+    await fetchData();
+  };
+
   return { 
     buildings, 
     buildingMap,
@@ -285,10 +327,13 @@ export const useBuildingData = () => {
     config, 
     loading, 
     logPayment, 
-    getBuildingStatus, 
+    updatePaymentLog,
+    deletePaymentLog,
+    getBuildingStatus,
     getTotalCollection,
     updateConfig,
     updateBuilding,
+    importLaneMap,
     forceSync,
     refresh: fetchData 
   };

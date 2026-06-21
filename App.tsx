@@ -90,6 +90,9 @@ function MainApp({ userName }: { userName: string }) {
     getTotalCollection,
     updateConfig,
     updateBuilding,
+    updatePaymentLog,
+    deletePaymentLog,
+    importLaneMap,
     refresh,
     forceSync,
     paymentLogs
@@ -107,6 +110,9 @@ function MainApp({ userName }: { userName: string }) {
   const [maintenanceVisible, setMaintenanceVisible] = useState(false);
   const [factorMenuVisible, setFactorMenuVisible] = useState(false);
   const [visibleFactorIds, setVisibleFactorIds] = useState<number[]>([1]);
+
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importJson, setImportJson] = useState('');
 
   const toggleFactorVisibility = (id: number) => {
     setVisibleFactorIds(prev => {
@@ -157,6 +163,22 @@ function MainApp({ userName }: { userName: string }) {
         }
       ]
     );
+  };
+
+  const handleImportLaneMap = async () => {
+    try {
+      const parsed = JSON.parse(importJson);
+      if (!Array.isArray(parsed) || !Array.isArray(parsed[0])) {
+        throw new Error('Invalid format: Expected a 2D array [[...], [...]]');
+      }
+      await importLaneMap(parsed);
+      setImportModalVisible(false);
+      setMaintenanceVisible(false);
+      setImportJson('');
+      Alert.alert('Success', 'Lane map imported successfully.');
+    } catch (err: any) {
+      Alert.alert('Import Error', err.message);
+    }
   };
 
   // Sync images locally when buildings are fetched
@@ -430,6 +452,14 @@ function MainApp({ userName }: { userName: string }) {
               >
                 Full JSON Backup
               </Button>
+              <Button
+                mode="outlined"
+                onPress={() => setImportModalVisible(true)}
+                style={{ marginBottom: 12 }}
+                icon="file-import"
+              >
+                Import Lane Map (JSON)
+              </Button>
               <Button 
                 mode="contained" 
                 onPress={handleReset} 
@@ -466,6 +496,33 @@ function MainApp({ userName }: { userName: string }) {
             </Modal>
           </Portal>
 
+          {/* Lane Map Import Modal */}
+          <Portal>
+            <Modal
+              visible={importModalVisible}
+              onDismiss={() => setImportModalVisible(false)}
+              contentContainerStyle={styles.modal}
+            >
+              <Text variant="headlineSmall">Import Lane Map</Text>
+              <Text variant="bodyMedium" style={{ marginBottom: 8 }}>
+                Paste the 2D array from laneMap.ts here. Existing buildings will be updated based on row/col.
+              </Text>
+              <TextInput
+                label="JSON Array"
+                value={importJson}
+                onChangeText={setImportJson}
+                mode="outlined"
+                multiline
+                numberOfLines={10}
+                style={{ maxHeight: 300 }}
+              />
+              <View style={styles.modalActions}>
+                <Button onPress={() => setImportModalVisible(false)}>Cancel</Button>
+                <Button mode="contained" onPress={handleImportLaneMap}>Import</Button>
+              </View>
+            </Modal>
+          </Portal>
+
           <BuildingOverlay
             visible={overlayVisible}
             onDismiss={() => setOverlayVisible(false)}
@@ -475,6 +532,8 @@ function MainApp({ userName }: { userName: string }) {
             activeMonth={activeMonth}
             onUpdateImage={handleUpdateImage}
             onLogPayment={handleLogPayment}
+            onUpdatePayment={updatePaymentLog}
+            onDeletePayment={deletePaymentLog}
             onUpdateMetadata={handleUpdateMetadata}
           />
 

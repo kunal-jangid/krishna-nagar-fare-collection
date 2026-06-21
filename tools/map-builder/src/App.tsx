@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { exportGridToTS } from './utils/export';
 
-const INITIAL_ROWS = 30;
-const COLS = 7;
+const INITIAL_ROWS = 40;
+const COLS = 30;
 
 function App() {
   const [grid, setGrid] = useState<number[][]>(

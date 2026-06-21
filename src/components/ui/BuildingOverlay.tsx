@@ -15,6 +15,8 @@ interface BuildingOverlayProps {
   activeMonth: number;
   onUpdateImage: () => void;
   onLogPayment: (factorId: 1 | 2 | 3, month: number, amount: number) => void;
+  onUpdatePayment?: (logId: string, newAmount: number) => void;
+  onDeletePayment?: (logId: string) => void;
   onUpdateMetadata: (buildingId: string, updates: Partial<BuildingData>) => Promise<void>;
 }
 
@@ -27,6 +29,8 @@ export const BuildingOverlay = ({
   activeMonth,
   onUpdateImage, 
   onLogPayment,
+  onUpdatePayment,
+  onDeletePayment,
   onUpdateMetadata
 }: BuildingOverlayProps) => {
   const [activeTab, setActiveFactor] = useState<string>('1');
@@ -263,6 +267,8 @@ export const BuildingOverlay = ({
                     }
                     activeMonth={activeMonth}
                     onLogPayment={onLogPayment} 
+                    onUpdatePayment={onUpdatePayment}
+                    onDeletePayment={onDeletePayment}
                     isAssigned={isAssigned}
                   />
                 </>
