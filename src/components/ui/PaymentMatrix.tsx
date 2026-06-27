@@ -37,7 +37,9 @@ export const PaymentMatrix = ({
 
   const { role: userRole, email: userEmail } = useUserRole();
   const isAdmin = userRole === 'admin';
+  const isEditor = userRole === 'editor' || userRole === 'admin';
   const canDelete = isAdmin;
+  const canLogOrUpdate = isEditor;
 
   // Sync selectedMonth with activeMonth when props change
   useEffect(() => {
@@ -54,12 +56,14 @@ export const PaymentMatrix = ({
     if (!isAssigned) return;
     const existingLog = getLogForMonth(month);
 
-    // If it's already paid, only admins can open it to edit/delete
+    // If it's already paid, only editors or admins can open it to edit/delete
     if (existingLog) {
-      if (!isAdmin) return;
+      if (!isEditor) return;
       setAmount(existingLog.amount.toString());
       setEditingLogId(existingLog.id);
     } else {
+      // If not paid, only editors or admins can log a new payment
+      if (!isEditor) return;
       setAmount('');
       setEditingLogId(null);
     }
@@ -97,11 +101,11 @@ export const PaymentMatrix = ({
       <View style={styles.quickAction}>
         <Button 
           mode="contained-tonal" 
-          icon={isPaid(activeMonth) ? (isAdmin ? 'pencil' : 'check') : 'plus'}
+          icon={isPaid(activeMonth) ? (isEditor ? 'pencil' : 'check') : 'plus'}
           onPress={() => handleOpenLog(activeMonth)}
-          disabled={!isAssigned || (isPaid(activeMonth) && !isAdmin)}
+          disabled={!isAssigned || (isPaid(activeMonth) && !isEditor)}
         >
-          {!isAssigned ? 'Not Tracking' : (isPaid(activeMonth) ? (isAdmin ? 'Edit ' : 'Paid for ') : 'Log for ')} {MONTHS[activeMonth - 1]}
+          {!isAssigned ? 'Not Tracking' : (isPaid(activeMonth) ? (isEditor ? 'Edit ' : 'Paid for ') : 'Log for ')} {MONTHS[activeMonth - 1]}
         </Button>
       </View>
 
@@ -140,11 +144,11 @@ export const PaymentMatrix = ({
                     isActive && isAssigned && styles.activeMonthCell
                   ]}
                   onPress={() => handleOpenLog(monthIndex)}
-                  disabled={!isAssigned || (paid && !isAdmin)}
+                  disabled={!isAssigned || (paid && !isEditor)}
                   activeOpacity={0.7}
                 >
                   <IconButton
-                    icon={paid ? (isAdmin ? 'pencil-circle' : 'check-circle') : (!isAssigned ? 'circle-off-outline' : 'circle-outline')}
+                    icon={paid ? (isEditor ? 'pencil-circle' : 'check-circle') : (!isAssigned ? 'circle-off-outline' : 'circle-outline')}
                     iconColor={iconColor}
                     size={22}
                     style={{ margin: 0 }}
