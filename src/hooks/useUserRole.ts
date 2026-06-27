@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 export const useUserRole = () => {
-  const [role, setRole] = useState<'admin' | 'collector' | null>(null);
+  const [role, setRole] = useState<'admin' | 'editor' | 'viewer' | null>(null);
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,9 +20,9 @@ export const useUserRole = () => {
           .single();
 
         if (data && !error) {
-          setRole(data.role as 'admin' | 'collector');
+          setRole(data.role as 'admin' | 'editor' | 'viewer');
         } else {
-          setRole('collector'); // Default fallback
+          setRole('viewer'); // Default fallback
         }
       }
     };
