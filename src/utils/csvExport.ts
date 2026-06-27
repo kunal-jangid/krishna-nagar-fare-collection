@@ -11,7 +11,7 @@ export const exportFactorToCSV = async (
   paymentLogs: PaymentLog[]
 ) => {
   // 1. Generate CSV Header
-  let csvContent = `House No,Resident Name,Row,Col,${MONTHS.join(',')},Total\n`;
+  let csvContent = `House No,Resident Name,Phone,Row,Col,${MONTHS.join(',')},Total\n`;
 
   // 2. Filter logs for this factor
   const factorLogs = paymentLogs.filter(log => log.factor_id === factorId);
@@ -24,7 +24,7 @@ export const exportFactorToCSV = async (
       factorId === 2 ? (building.track_factor_2 ?? true) :
       (building.track_factor_3 ?? true);
 
-    let rowStr = `${building.house_no},${building.owner_name},${building.row},${building.col},`;
+    let rowStr = `${building.house_no},${building.owner_name},${building.phone_number || ''},${building.row},${building.col},`;
     let rowTotal = 0;
 
     if (!isAssigned) {
