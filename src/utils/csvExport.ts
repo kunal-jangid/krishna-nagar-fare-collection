@@ -16,7 +16,30 @@ export const exportFactorToCSV = async (
   // 2. Filter logs for this factor
   const factorLogs = paymentLogs.filter(log => log.factor_id === factorId);
 
-  // 3. Generate Rows
+  // 3. Calculate monthly and grand totals for assigned buildings
+  const monthTotals = Array(12).fill(0);
+  buildings.forEach(building => {
+    const isAssigned = 
+      factorId === 1 ? (building.track_factor_1 ?? true) :
+      factorId === 2 ? (building.track_factor_2 ?? true) :
+      (building.track_factor_3 ?? true);
+
+    if (isAssigned) {
+      for (let m = 1; m <= 12; m++) {
+        const log = factorLogs.find(l => l.building_id === building.building_id && l.month === m);
+        if (log) {
+          monthTotals[m - 1] += log.amount;
+        }
+      }
+    }
+  });
+  const grandTotal = monthTotals.reduce((sum, val) => sum + val, 0);
+
+  // 4. Generate and prepend the Total row as the first record
+  const totalRow = `Total,,,,,${monthTotals.join(',')},${grandTotal}\n`;
+  csvContent += totalRow;
+
+  // 5. Generate Rows for each building
   buildings.forEach(building => {
     // Check if building is tracking this factor
     const isAssigned = 
@@ -28,8 +51,8 @@ export const exportFactorToCSV = async (
     let rowTotal = 0;
 
     if (!isAssigned) {
-      // Fill months with NA and Total with 0
-      rowStr += Array(12).fill('NA').join(',') + `,0\n`;
+      // Fill months with empty string and Total with empty string (treat as null values)
+      rowStr += Array(12).fill('').join(',') + `,\n`;
     } else {
       // Calculate each month's contribution
       const monthContributions = MONTHS.map((_, index) => {
@@ -46,7 +69,7 @@ export const exportFactorToCSV = async (
     csvContent += rowStr;
   });
 
-  // 4. Save and Share File
+  // 6. Save and Share File
   try {
     const fileName = `${factorLabel.replace(/\s+/g, '_')}_Report_${new Date().getFullYear()}.csv`;
     const fileUri = `${FileSystem.documentDirectory}${fileName}`;
