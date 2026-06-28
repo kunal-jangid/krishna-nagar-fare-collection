@@ -20,6 +20,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Scene } from './src/components/3d/Scene';
 import { Grid2D } from './src/components/2d/Grid2D';
 import { BuildingOverlay } from './src/components/ui/BuildingOverlay';
+import { PaymentLogsModal } from './src/components/ui/PaymentLogsModal';
 import { BuildingData } from './src/types';
 import { useBuildingData } from './src/hooks/useBuildingData';
 import { useUserRole } from './src/hooks/useUserRole';
@@ -108,6 +109,7 @@ function MainApp({ userName }: { userName: string }) {
   const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedBuildingCoord, setSelectedBuildingCoord] = useState<{ row: number, col: number } | null>(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const [logsModalVisible, setLogsModalVisible] = useState(false);
 
   // UI States
   const [menuVisible, setMenuVisible] = useState(false);
@@ -431,7 +433,9 @@ function MainApp({ userName }: { userName: string }) {
                 <TouchableOpacity
                   style={styles.stat}
                   onPress={isEditor ? openTargetModal : undefined}
-                  activeOpacity={isEditor ? 0.7 : 1}
+                  onLongPress={() => setLogsModalVisible(true)}
+                  delayLongPress={1000}
+                  activeOpacity={0.7}
                 >
                   <Text variant="labelSmall" numberOfLines={1} style={styles.targetLabel}>
                     Target {isEditor && <MaterialCommunityIcons name="pencil-outline" size={10} />}
@@ -541,6 +545,14 @@ function MainApp({ userName }: { userName: string }) {
             onUpdatePayment={updatePaymentLog}
             onDeletePayment={deletePaymentLog}
             onUpdateMetadata={handleUpdateMetadata}
+          />
+
+          <PaymentLogsModal
+            visible={logsModalVisible}
+            onDismiss={() => setLogsModalVisible(false)}
+            paymentLogs={paymentLogs}
+            buildings={buildings}
+            config={config}
           />
 
           <StatusBar style="auto" />
