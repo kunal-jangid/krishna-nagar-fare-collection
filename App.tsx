@@ -422,7 +422,7 @@ function MainApp({ userName }: { userName: string }) {
                 <TouchableOpacity 
                   style={styles.stat}
                   onLongPress={isAdmin ? () => setMaintenanceVisible(true) : undefined}
-                  delayLongPress={2000}
+                  delayLongPress={7000}
                 >
                   <Text variant="labelSmall" numberOfLines={1}>Collection</Text>
                   <Text variant="titleMedium">₹{currentTotal}</Text>
@@ -434,7 +434,7 @@ function MainApp({ userName }: { userName: string }) {
                   style={styles.stat}
                   onPress={isEditor ? openTargetModal : undefined}
                   onLongPress={() => setLogsModalVisible(true)}
-                  delayLongPress={1000}
+                  delayLongPress={7000}
                   activeOpacity={0.7}
                 >
                   <Text variant="labelSmall" numberOfLines={1} style={styles.targetLabel}>
