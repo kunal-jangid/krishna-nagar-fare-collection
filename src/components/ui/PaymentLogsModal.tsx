@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, FlatList } from 'react-native';
-import { Modal, Portal, Text, Button, Card, Searchbar, SegmentedButtons, DataTable } from 'react-native-paper';
+import { StyleSheet, View, ScrollView, Dimensions } from 'react-native';
+import { Modal, Portal, Text, Button, Searchbar, SegmentedButtons, DataTable } from 'react-native-paper';
 import { PaymentLog, BuildingData, AppConfig } from '../../types';
 
 interface PaymentLogsModalProps {
@@ -15,6 +15,8 @@ const MONTHS_ABBR = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const PaymentLogsModal = ({
   visible,
@@ -114,142 +116,142 @@ export const PaymentLogsModal = ({
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.modalOverlay}
       >
-        <Card style={styles.card}>
-          <Card.Content style={styles.content}>
-            <Text variant="headlineSmall" style={styles.title}>Payment Logs</Text>
-            
-            <View style={styles.searchRow}>
-              <Searchbar
-                placeholder="Search House, Updater..."
-                onChangeText={setSearchQuery}
-                value={searchQuery}
-                style={[styles.searchbar, { flex: 1, marginRight: 8 }]}
-              />
-              <Searchbar
-                placeholder="Filter by Resident..."
-                onChangeText={setResidentQuery}
-                value={residentQuery}
-                style={[styles.searchbar, { flex: 1 }]}
-                icon="account-search"
-              />
-            </View>
+        <View style={styles.modalContent}>
+          <Text variant="headlineSmall" style={styles.title}>Payment Logs</Text>
+          
+          <Searchbar
+            placeholder="Search House No, Updater..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={styles.searchbar}
+          />
+          <Searchbar
+            placeholder="Filter by Resident Name..."
+            onChangeText={setResidentQuery}
+            value={residentQuery}
+            style={styles.searchbar}
+            icon="account-search"
+          />
 
-            <SegmentedButtons
-              value={factorFilter}
-              onValueChange={setFactorFilter}
-              style={styles.filterButtons}
-              buttons={[
-                { value: 'all', label: 'All' },
-                { value: '1', label: config.factor_1_label, labelStyle: styles.filterLabel },
-                { value: '2', label: config.factor_2_label, labelStyle: styles.filterLabel },
-                { value: '3', label: config.factor_3_label, labelStyle: styles.filterLabel },
-              ]}
-            />
+          <SegmentedButtons
+            value={factorFilter}
+            onValueChange={setFactorFilter}
+            style={styles.filterButtons}
+            buttons={[
+              { value: 'all', label: 'All' },
+              { value: '1', label: config.factor_1_label, labelStyle: styles.filterLabel },
+              { value: '2', label: config.factor_2_label, labelStyle: styles.filterLabel },
+              { value: '3', label: config.factor_3_label, labelStyle: styles.filterLabel },
+            ]}
+          />
 
-            <View style={styles.tableWrapper}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                <View style={styles.tableBody}>
+          <View style={styles.tableContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+              <View style={{ width: 740 }}>
+                <DataTable>
+                  <DataTable.Header style={styles.tableHeader}>
+                    <DataTable.Title style={[styles.columnHeader, { width: 80 }]} textStyle={styles.headerText}>House No</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 130 }]} textStyle={styles.headerText}>Resident Name</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 110 }]} textStyle={styles.headerText}>Updater</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 80 }]} numeric textStyle={styles.headerText}>Amount</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 80 }]} textStyle={styles.headerText}>Collection</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 60 }]} textStyle={styles.headerText}>Month</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 60 }]} textStyle={styles.headerText}>Year</DataTable.Title>
+                    <DataTable.Title style={[styles.columnHeader, { width: 140 }]} textStyle={styles.headerText}>Timestamp</DataTable.Title>
+                  </DataTable.Header>
+                </DataTable>
+                
+                <ScrollView showsVerticalScrollIndicator={true} style={styles.verticalScroll}>
                   <DataTable>
-                    <DataTable.Header style={styles.tableHeader}>
-                      <DataTable.Title style={[styles.columnHeader, { width: 80 }]} textStyle={styles.headerText}>House No</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 130 }]} textStyle={styles.headerText}>Resident Name</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 110 }]} textStyle={styles.headerText}>Updater</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 80 }]} numeric textStyle={styles.headerText}>Amount</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 80 }]} textStyle={styles.headerText}>Collection</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 60 }]} textStyle={styles.headerText}>Month</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 60 }]} textStyle={styles.headerText}>Year</DataTable.Title>
-                      <DataTable.Title style={[styles.columnHeader, { width: 140 }]} textStyle={styles.headerText}>Timestamp</DataTable.Title>
-                    </DataTable.Header>
-
                     {paginatedLogs.length > 0 ? (
-                      <FlatList
-                        data={paginatedLogs}
-                        renderItem={({ item, index }) => {
-                          const building = resolveBuilding(item.building_id);
-                          const houseNo = building?.house_no || `HN-${item.building_id}`;
-                          const ownerName = building?.owner_name || 'N/A';
-                          const updater = item.created_by_name || item.created_by || 'System';
-                          const factorLabel = 
-                            item.factor_id === 1 ? config.factor_1_label :
-                            item.factor_id === 2 ? config.factor_2_label :
-                            config.factor_3_label;
+                      paginatedLogs.map((item, index) => {
+                        const building = resolveBuilding(item.building_id);
+                        const houseNo = building?.house_no || `HN-${item.building_id}`;
+                        const ownerName = building?.owner_name || 'N/A';
+                        const updater = item.created_by_name || item.created_by || 'System';
+                        const factorLabel = 
+                          item.factor_id === 1 ? config.factor_1_label :
+                          item.factor_id === 2 ? config.factor_2_label :
+                          config.factor_3_label;
 
-                          return (
-                            <DataTable.Row style={styles.tableRow}>
-                              <DataTable.Cell style={[styles.cell, { width: 80 }]} textStyle={styles.cellText}>{houseNo}</DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 130 }]}><Text numberOfLines={1} style={styles.cellText}>{ownerName}</Text></DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 110 }]}><Text numberOfLines={1} style={styles.cellText}>{updater}</Text></DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 80 }]} numeric textStyle={[styles.cellText, styles.amountText]}>₹{item.amount}</DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 80 }]}><Text numberOfLines={1} style={styles.cellText}>{factorLabel}</Text></DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 60 }]} textStyle={styles.cellText}>{MONTHS_ABBR[item.month - 1]}</DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 60 }]} textStyle={styles.cellText}>{item.year}</DataTable.Cell>
-                              <DataTable.Cell style={[styles.cell, { width: 140 }]} textStyle={styles.cellText}>{formatTimestamp(item.created_at)}</DataTable.Cell>
-                            </DataTable.Row>
-                          );
-                        }}
-                        keyExtractor={item => item.id}
-                        showsVerticalScrollIndicator={true}
-                      />
+                        const rowBg = index % 2 === 0 ? '#ffffff' : '#f9f9fa';
+
+                        return (
+                          <DataTable.Row key={item.id} style={[styles.tableRow, { backgroundColor: rowBg }]}>
+                            <DataTable.Cell style={[styles.cell, { width: 80 }]} textStyle={styles.cellText}>{houseNo}</DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 130 }]}><Text numberOfLines={1} style={styles.cellText}>{ownerName}</Text></DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 110 }]}><Text numberOfLines={1} style={styles.cellText}>{updater}</Text></DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 80 }]} numeric textStyle={[styles.cellText, styles.amountText]}>₹{item.amount}</DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 80 }]}><Text numberOfLines={1} style={styles.cellText}>{factorLabel}</Text></DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 60 }]} textStyle={styles.cellText}>{MONTHS_ABBR[item.month - 1]}</DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 60 }]} textStyle={styles.cellText}>{item.year}</DataTable.Cell>
+                            <DataTable.Cell style={[styles.cell, { width: 140 }]} textStyle={styles.cellText}>{formatTimestamp(item.created_at)}</DataTable.Cell>
+                          </DataTable.Row>
+                        );
+                      })
                     ) : (
                       <View style={styles.emptyState}>
                         <Text variant="bodyLarge" style={styles.emptyText}>No payment logs found</Text>
                       </View>
                     )}
                   </DataTable>
-                </View>
-              </ScrollView>
-            </View>
-            
-            <DataTable.Pagination
-              page={page}
-              numberOfPages={Math.ceil(filteredLogs.length / itemsPerPage)}
-              onPageChange={(page) => setPage(page)}
-              label={`${from + 1}-${to} of ${filteredLogs.length}`}
-              numberOfItemsPerPageList={numberOfItemsPerPageList}
-              numberOfItemsPerPage={itemsPerPage}
-              onItemsPerPageChange={setItemsPerPage}
-              showFastPaginationControls
-              selectPageDropdownLabel={'Rows per page'}
-            />
-          </Card.Content>
-          <Card.Actions style={styles.actions}>
+                </ScrollView>
+              </View>
+            </ScrollView>
+          </View>
+
+          <DataTable.Pagination
+            page={page}
+            numberOfPages={Math.ceil(filteredLogs.length / itemsPerPage)}
+            onPageChange={(page) => setPage(page)}
+            label={`${from + 1}-${to} of ${filteredLogs.length}`}
+            numberOfItemsPerPageList={numberOfItemsPerPageList}
+            numberOfItemsPerPage={itemsPerPage}
+            onItemsPerPageChange={setItemsPerPage}
+            showFastPaginationControls
+            selectPageDropdownLabel={'Rows per page'}
+            style={styles.pagination}
+          />
+
+          <View style={styles.actions}>
             <Button mode="contained" onPress={onDismiss}>Close</Button>
-          </Card.Actions>
-        </Card>
+          </View>
+        </View>
       </Modal>
     </Portal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 12,
-    maxHeight: '92%',
   },
-  card: {
+  modalContent: {
+    backgroundColor: '#fff',
     borderRadius: 16,
-    overflow: 'hidden',
-    height: '100%',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 8,
+    padding: 16,
+    width: '100%',
+    height: SCREEN_HEIGHT * 0.85,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   title: {
     fontWeight: 'bold',
     marginBottom: 12,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
   },
   searchbar: {
     backgroundColor: '#f1f3f5',
     elevation: 0,
     borderRadius: 8,
     height: 48,
+    marginBottom: 8,
   },
   filterButtons: {
     marginBottom: 12,
@@ -257,17 +259,17 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 10,
   },
-  tableWrapper: {
+  tableContainer: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#fff',
+    marginBottom: 8,
   },
-  tableBody: {
-    flexDirection: 'column',
-    height: '100%',
+  verticalScroll: {
+    flex: 1,
   },
   tableHeader: {
     backgroundColor: '#f1f3f5',
@@ -309,13 +311,20 @@ const styles = StyleSheet.create({
     padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 740, // Match the total table columns width
+    width: 740,
   },
   emptyText: {
     color: '#868e96',
   },
+  pagination: {
+    justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fafafa',
+  },
   actions: {
-    padding: 12,
+    marginTop: 8,
+    flexDirection: 'row',
     justifyContent: 'flex-end',
   },
 });
