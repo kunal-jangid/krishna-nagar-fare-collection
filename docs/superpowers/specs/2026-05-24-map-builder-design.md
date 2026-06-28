@@ -26,8 +26,9 @@ A standalone, single-page web utility designed to visually generate the constant
   - `1-5` (Building): Distinct color (e.g., blue) with the integer clearly visible in the center.
 
 ### Controls
-- **Add Row Button:** Appends a new row of `0`s to the bottom of the grid, allowing the map to scale to 50-60 buildings.
-- **Remove Row Button:** Removes the last row.
+- **Add Row/Column Button:** Appends a new row or column of `0`s to the grid, allowing the map to scale to 50-60 buildings.
+- **Remove Row/Column Button:** Removes the last row or column.
+- **Import laneMap.ts:** Allows uploading an existing file to load its grid state into the editor.
 
 ### Export Functionality
 - An "Export laneMap.ts" button.

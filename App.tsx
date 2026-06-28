@@ -22,6 +22,7 @@ import { Grid2D } from './src/components/2d/Grid2D';
 import { BuildingOverlay } from './src/components/ui/BuildingOverlay';
 import { BuildingData } from './src/types';
 import { useBuildingData } from './src/hooks/useBuildingData';
+import { useUserRole } from './src/hooks/useUserRole';
 import { uploadBuildingImage, syncImagesLocally } from './src/services/imageService';
 import { exportFactorToCSV } from './src/utils/csvExport';
 import { supabase } from './src/lib/supabase';
@@ -97,6 +98,11 @@ function MainApp({ userName }: { userName: string }) {
     forceSync,
     paymentLogs
   } = useBuildingData();
+
+  const { role: userRole } = useUserRole();
+  const isAdmin = userRole === 'admin';
+  const isEditor = userRole === 'editor' || userRole === 'admin';
+
   const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D');
   const [activeFactorId, setActiveFactorId] = useState<number>(1);
   const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth() + 1);
@@ -413,7 +419,7 @@ function MainApp({ userName }: { userName: string }) {
               <Card.Content style={styles.widgetContent}>
                 <TouchableOpacity 
                   style={styles.stat}
-                  onLongPress={() => setMaintenanceVisible(true)}
+                  onLongPress={isAdmin ? () => setMaintenanceVisible(true) : undefined}
                   delayLongPress={2000}
                 >
                   <Text variant="labelSmall" numberOfLines={1}>Collection</Text>
@@ -424,11 +430,11 @@ function MainApp({ userName }: { userName: string }) {
 
                 <TouchableOpacity
                   style={styles.stat}
-                  onPress={openTargetModal}
-                  activeOpacity={0.7}
+                  onPress={isEditor ? openTargetModal : undefined}
+                  activeOpacity={isEditor ? 0.7 : 1}
                 >
                   <Text variant="labelSmall" numberOfLines={1} style={styles.targetLabel}>
-                    Target <MaterialCommunityIcons name="pencil-outline" size={10} />
+                    Target {isEditor && <MaterialCommunityIcons name="pencil-outline" size={10} />}
                   </Text>
                   <Text variant="titleMedium">₹{activeTarget}</Text>
                 </TouchableOpacity>

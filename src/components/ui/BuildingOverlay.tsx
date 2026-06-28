@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { BuildingData, PaymentLog, AppConfig } from '../../types';
 import { PaymentMatrix } from './PaymentMatrix';
+import { useUserRole } from '../../hooks/useUserRole';
 
 interface BuildingOverlayProps {
   visible: boolean;
@@ -35,6 +36,9 @@ export const BuildingOverlay = ({
 }: BuildingOverlayProps) => {
   const [activeTab, setActiveFactor] = useState<string>('1');
   const [isEditing, setIsEditing] = useState(false);
+  
+  const { role: userRole } = useUserRole();
+  const isEditor = userRole === 'editor' || userRole === 'admin';
   
   // Edit states
   const [editHouseNo, setEditHouseNo] = useState('');
@@ -227,12 +231,14 @@ export const BuildingOverlay = ({
                     </>
                   )}
                 </View>
-                <IconButton 
-                  icon={isEditing ? "check" : "pencil"} 
-                  mode="contained-tonal"
-                  onPress={isEditing ? handleSaveMetadata : () => setIsEditing(true)}
-                  disabled={isEditing && phoneError}
-                />
+                {isEditor && (
+                  <IconButton 
+                    icon={isEditing ? "check" : "pencil"} 
+                    mode="contained-tonal"
+                    onPress={isEditing ? handleSaveMetadata : () => setIsEditing(true)}
+                    disabled={isEditing && phoneError}
+                  />
+                )}
                 {isEditing && (
                   <IconButton 
                     icon="close" 
@@ -286,7 +292,9 @@ export const BuildingOverlay = ({
               </View>
             </Card.Content>
             <Card.Actions style={styles.actions}>
-              <Button onPress={onUpdateImage} icon="camera" mode="outlined">Photo</Button>
+              {isEditor && (
+                <Button onPress={onUpdateImage} icon="camera" mode="outlined">Photo</Button>
+              )}
               <Button onPress={() => { onDismiss(); setIsEditing(false); }} mode="contained">Close</Button>
             </Card.Actions>
           </Card>
