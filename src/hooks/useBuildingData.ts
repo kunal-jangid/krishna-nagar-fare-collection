@@ -45,8 +45,7 @@ export const useBuildingData = () => {
       // Fetch logs from Supabase
       const { data: logsData, error: lError } = await supabase
         .from('payment_logs')
-        .select('*')
-        .eq('year', new Date().getFullYear());
+        .select('*');
         
       if (lError) logger.error('Fetch payment logs failed', { error: lError.message });
 
@@ -216,11 +215,13 @@ export const useBuildingData = () => {
 
   const paidStatusIndex = useMemo(() => {
     const index = new Map<string, Set<string>>();
-    paymentLogs.forEach(log => {
-      const key = `${log.factor_id}-${log.month}`;
-      if (!index.has(key)) index.set(key, new Set());
-      index.get(key)!.add(log.building_id);
-    });
+    paymentLogs
+      .filter(log => log.year === new Date().getFullYear())
+      .forEach(log => {
+        const key = `${log.factor_id}-${log.month}`;
+        if (!index.has(key)) index.set(key, new Set());
+        index.get(key)!.add(log.building_id);
+      });
     return index;
   }, [paymentLogs]);
 
