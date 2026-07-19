@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
+import { supabase } from '../lib/supabase';
 import { logger } from '../utils/logger';
-
-const GITHUB_REPO_URL = 'https://api.github.com/repos/kunaljangid2k3/krishna-nagar-fare-collection/releases/latest';
 
 function semverCompare(v1: string, v2: string) {
   const p1 = v1.replace(/^v/, '').split('.').map(Number);
@@ -20,49 +19,45 @@ function semverCompare(v1: string, v2: string) {
 export const useAppUpdate = () => {
   const checkForUpdates = async (manual = false) => {
     try {
-      const response = await fetch(GITHUB_REPO_URL, {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Krishna-Nagar-Collections-App'
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`GitHub API returned status ${response.status}`);
+      logger.info('Checking for updates via Supabase app_config...');
+      const { data, error } = await supabase
+        .from('app_config')
+        .select('latest_version, apk_url')
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message || 'No config data returned from database');
       }
+
+      const latestVersion = data.latest_version; // e.g. "1.0.1"
+      const apkUrl = data.apk_url;
       
-      const data = await response.json();
-      const latestVersion = data.tag_name; // e.g. "v1.0.1" or "1.0.1"
       if (!latestVersion) {
-        if (manual) Alert.alert('Check for Updates', 'No release tag found.');
+        if (manual) Alert.alert('Check for Updates', 'No release version configured in database.');
         return;
       }
       
-      const currentVersion = Constants.expoConfig?.version || '1.0.0';
+      const currentVersion = Constants.expoConfig?.version || '1.1.0';
       
-      logger.info('Checking for updates', { currentVersion, latestVersion });
+      logger.info('Comparing versions', { currentVersion, latestVersion });
 
       if (semverCompare(currentVersion, latestVersion) < 0) {
-        const downloadUrl = data.assets?.find((a: any) => a.name.endsWith('.apk'))?.browser_download_url || data.html_url;
-        
-        // Truncate long release notes if necessary
-        let releaseNotes = '';
-        if (data.body) {
-          const cleanBody = data.body.substring(0, 200);
-          releaseNotes = `\n\nWhat's New:\n${cleanBody}${data.body.length > 200 ? '...' : ''}`;
-        }
-        
         Alert.alert(
           'Update Available!',
-          `A new version (${latestVersion}) is available. Your current version is ${currentVersion}.${releaseNotes}`,
+          `A new version (${latestVersion}) is available. Your current version is ${currentVersion}.`,
           [
             { text: 'Later', style: 'cancel' },
             { 
               text: 'Download', 
               onPress: () => {
-                Linking.openURL(downloadUrl).catch(err => {
-                  logger.error('Failed to open download URL', { error: err.message });
-                  Alert.alert('Error', 'Could not open the download page.');
-                });
+                if (apkUrl) {
+                  Linking.openURL(apkUrl).catch(err => {
+                    logger.error('Failed to open download URL', { error: err.message });
+                    Alert.alert('Error', 'Could not open the download link.');
+                  });
+                } else {
+                  Alert.alert('Error', 'Download link is not configured in database.');
+                }
               } 
             }
           ]
@@ -75,13 +70,13 @@ export const useAppUpdate = () => {
     } catch (error: any) {
       logger.error('Failed checking for updates', { error: error.message });
       if (manual) {
-        Alert.alert('Check for Updates', 'Failed to check for updates. Please check your internet connection.');
+        Alert.alert('Check for Updates', 'Failed to check for updates. Please check your internet/database connection.');
       }
     }
   };
 
   useEffect(() => {
-    // Run update check on mount after a short delay to not block initial render/auth checks
+    // Run update check on mount after a short delay
     const timer = setTimeout(() => {
       checkForUpdates(false);
     }, 3000);

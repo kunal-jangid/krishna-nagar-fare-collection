@@ -39,4 +39,6 @@ export interface AppConfig {
   factor_1_target?: number;
   factor_2_target?: number;
   factor_3_target?: number;
+  latest_version?: string;
+  apk_url?: string;
 }
