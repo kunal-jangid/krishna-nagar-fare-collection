@@ -24,6 +24,7 @@ import { PaymentLogsModal } from './src/components/ui/PaymentLogsModal';
 import { BuildingData } from './src/types';
 import { useBuildingData } from './src/hooks/useBuildingData';
 import { useUserRole } from './src/hooks/useUserRole';
+import { useAppUpdate } from './src/hooks/useAppUpdate';
 import { uploadBuildingImage, syncImagesLocally } from './src/services/imageService';
 import { exportFactorToCSV } from './src/utils/csvExport';
 import { supabase } from './src/lib/supabase';
@@ -99,6 +100,8 @@ function MainApp({ userName }: { userName: string }) {
     forceSync,
     paymentLogs
   } = useBuildingData();
+
+  const { checkForUpdates } = useAppUpdate();
 
   const { role: userRole } = useUserRole();
   const isAdmin = userRole === 'admin';
@@ -371,6 +374,11 @@ function MainApp({ userName }: { userName: string }) {
                 icon="sync"
                 size={24}
                 onPress={() => forceSync()}
+              />
+              <IconButton
+                icon="cloud-download-outline"
+                size={24}
+                onPress={() => checkForUpdates(true)}
               />
               <IconButton
                 icon="file-excel-outline"

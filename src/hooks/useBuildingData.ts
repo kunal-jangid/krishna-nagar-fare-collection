@@ -128,6 +128,13 @@ export const useBuildingData = () => {
           if (item.table_name === 'payment_logs') {
             const { error: syncErr } = await supabase.from('payment_logs').insert(data);
             error = syncErr;
+
+            // Handle uniqueness constraint violations.
+            // Postgres error code '23505' represents unique_violation.
+            if (syncErr && (syncErr.code === '23505' || syncErr.message?.includes('duplicate key'))) {
+              console.warn('[SYNC] Payment log already exists in Supabase. Discarding duplicate from local sync queue.', data);
+              error = null; // Clear the error so it gets removed from the local sqlite pending_sync queue
+            }
           } else if (item.table_name === 'buildings') {
             const { error: syncErr } = await supabase.from('buildings').insert(data);
             error = syncErr;
@@ -179,12 +186,26 @@ export const useBuildingData = () => {
     const buildingId = await ensureBuildingRegistered(building);
     if (!buildingId) return;
 
+    // PREVENT DUPLICATES: Check if a payment log for this building, factor, month, and year already exists in current local state
+    const currentYear = new Date().getFullYear();
+    const isDuplicate = paymentLogs.some(log => 
+      log.building_id === buildingId && 
+      log.factor_id === factorId && 
+      log.month === month && 
+      log.year === currentYear
+    );
+
+    if (isDuplicate) {
+      logger.warn(`Duplicate payment prevented for house no. ${building.house_no}: Paid ₹${amount} for factor ${factorId} (Month ${month})`);
+      return;
+    }
+
     const payload = {
       building_id: buildingId,
       factor_id: factorId,
       month,
       amount,
-      year: new Date().getFullYear(),
+      year: currentYear,
       created_by_name: userName,
     };
 
