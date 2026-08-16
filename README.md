@@ -55,12 +55,26 @@ A React Native application for managing neighborhood collections, subscriptions,
 ## ☁️ Building with EAS
 
 This project is configured to be built using Expo Application Services (EAS). 
-A GitHub Actions workflow is included to automate production builds.
+A GitHub Actions workflow is included to automate preview and production builds.
 
-To build locally:
-```bash
-eas build --platform android --profile preview
-```
+### 🔑 Required Environment Secrets
+
+To prevent committing credentials, the API keys (`EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_SUPABASE_URL`) are omitted from `eas.json`. You must configure them in one of the following ways depending on your build target:
+
+1. **For GitHub Actions (CI):**
+   Configure `EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_SUPABASE_URL` as **GitHub Secrets** under your repository settings.
+
+2. **For EAS Cloud Builds (e.g. running `eas build` directly from terminal to Expo's servers):**
+   Register the keys as **EAS Secrets** in your Expo dashboard or via EAS CLI:
+   ```bash
+   eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --type string --value <YOUR_PUBLISHABLE_KEY>
+   ```
+
+3. **For Local EAS Builds:**
+   Ensure these variables are exported in your current shell environment before starting the build command:
+   ```bash
+   EXPO_PUBLIC_SUPABASE_URL="https://your-project-id.supabase.co" EXPO_PUBLIC_SUPABASE_ANON_KEY="your-publishable-key" eas build --platform android --profile preview
+   ```
 
 ## 🧰 Maintenance Tools
 
